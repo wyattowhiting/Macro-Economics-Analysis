@@ -1,0 +1,424 @@
+---
+title: "Economic Inequality and Development: A Cross-National Analysis"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: simplex
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    fig_width: 10
+    fig_height: 6
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.align = "center")
+
+# Load required packages
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(DT)
+library(pander)
+library(cowplot)
+library(broom)
+
+# Set theme for all plots
+theme_set(theme_minimal())
+```
+
+# Executive Summary
+
+This study examines the relationship between economic inequality and development outcomes across regime types, analyzing cross-national panel data from 2000-2020. We investigate how inequality affects life expectancy, economic prosperity, and educational attainment, and whether these relationships differ between autocratic and democratic regimes.
+
+**Key Research Questions:**
+1. How does market inequality affect human development indicators?
+2. Do these effects differ between autocracies and democracies?
+3. Is inequality persistent over time, and does this persistence vary by regime type?
+
+# 1. Data Overview
+
+## 1.1 Dataset Summary
+
+```{r data-summary-table, echo=TRUE}
+# Create summary table of the data
+data_summary <- polidataclean %>%
+  summarise(
+    Countries = n_distinct(country),
+    `Total Observations` = n(),
+    `Year Range` = paste(min(year), "-", max(year)),
+    `Autocratic Observations` = sum(type == 0),
+    `Democratic Observations` = sum(type == 1),
+    `Avg Market Gini` = round(mean(gini_mkt, na.rm = TRUE), 1),
+    `Gini Range` = paste(round(min(gini_mkt), 1), "-", round(max(gini_mkt), 1))
+  )
+
+kable(data_summary, caption = "Dataset Overview: Cross-National Inequality and Development Analysis") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## 1.2 Interactive Data Sample
+
+```{r interactive-data-table, echo=TRUE}
+# Display interactive sample of the data
+datatable(polidataclean %>%
+  select(country, year, gini_mkt, life_expectancy, gni_per_capita, mean_years_schooling, v2x_regime, type) %>%
+  arrange(country, year),
+  caption = "Sample of Analysis Dataset (Interactive Table)",
+  options = list(pageLength = 10, scrollX = TRUE)) %>%
+  formatRound(columns = c("gini_mkt", "life_expectancy", "gni_per_capita", "mean_years_schooling"), digits = 2)
+```
+
+**Variable Definitions:**
+- `gini_mkt`: Market Gini coefficient (pre-tax, pre-transfer inequality)
+- `life_expectancy`: Life expectancy at birth (years)
+- `gni_per_capita`: GNI per capita (PPP, constant 2017 USD)
+- `mean_years_schooling`: Average years of education for adults 25+
+- `v2x_regime`: V-Dem regime classification (0-3 scale)
+- `type`: Binary regime indicator (0 = Autocracy, 1 = Democracy)
+
+# 2. Analysis: Inequality and Life Expectancy
+
+## 2.1 Regression Model
+
+We examine how market inequality affects life expectancy, allowing for different effects in autocracies versus democracies through an interaction term.
+
+**Model Specification:**
+$$\log(\text{Life Expectancy}) = \beta_0 + \beta_1 \text{Gini} + \beta_2 \text{Democracy} + \beta_3 (\text{Gini} \times \text{Democracy}) + \epsilon$$
+
+```{r life-expectancy-model, echo=TRUE}
+# Life expectancy model
+model_life <- lm(log(life_expectancy) ~ gini_mkt + as.factor(type) + gini_mkt:as.factor(type),
+                 data = polidataclean)
+
+# Display results
+pander(summary(model_life),
+       caption = "Regression Results: Log Life Expectancy vs Market Inequality")
+```
+
+## 2.2 Visualization and Interpretation
+
+```{r life-expectancy-plot, echo=TRUE, fig.height=6, fig.width=10}
+# Extract coefficients for plotting and interpretation
+i <- coef(model_life)
+
+# Calculate key statistics for interpretation
+autocracy_effect <- round((exp(i[2]) - 1) * 100, 2)
+democracy_effect <- round((exp(i[2] + i[4]) - 1) * 100, 2)
+baseline_life_exp_autocracy <- round(exp(i[1]), 1)
+baseline_life_exp_democracy <- round(exp(i[1] + i[3]), 1)
+
+# Create the plot with accurate titles
+plife1 <- ggplot(polidataclean, aes(x = gini_mkt, y = log(life_expectancy), color = as.factor(type))) +
+  geom_point(alpha = 0.6, size = 1.5) +
+  stat_function(fun = function(x) i[1] + i[2]*x, color = "red", linewidth = 1.2) +
+  stat_function(fun = function(x) (i[1]+i[3]) + (i[2]+i[4])*x, color = "blue", linewidth = 1.2) +
+  scale_color_manual(values = c("red", "blue"),
+                     labels = c("Autocracies", "Democracies"),
+                     name = "Regime Type") +
+  labs(
+    x = "Market Gini Coefficient (Pre-tax, pre-transfer inequality)",
+    y = "Log Life Expectancy (years)",
+    title = "Inequality Has a Weaker Effect on Life Expectancy in Democracies",
+    subtitle = paste("Analysis of", nrow(polidataclean), "observations from",
+                    n_distinct(polidataclean$country), "countries (2000-2020)"),
+    caption = "Red line: Autocracies (v2x_regime 0-1), Blue line: Democracies (v2x_regime 2-3)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+print(plife1)
+```
+
+**Key Findings:**
+- In autocracies, a 1-point increase in the Gini coefficient is associated with a **`r autocracy_effect`%** change in life expectancy
+- In democracies, the same increase is associated with a **`r democracy_effect`%** change in life expectancy
+- Democratic institutions appear to moderate the negative effects of inequality on health outcomes
+
+# 3. Analysis: Inequality and Economic Prosperity
+
+## 3.1 GNI Per Capita Model
+
+```{r gni-model, echo=TRUE}
+# GNI per capita model
+model_gni <- lm(log(gni_per_capita) ~ gini_mkt + as.factor(type) + gini_mkt:as.factor(type),
+                data = polidataclean)
+
+# Display results
+pander(summary(model_gni),
+       caption = "Regression Results: Log GNI Per Capita vs Market Inequality")
+```
+
+## 3.2 Visualization
+
+```{r gni-plot, echo=TRUE, fig.height=6, fig.width=10}
+# Extract coefficients and calculate effects
+g <- coef(model_gni)
+gni_autocracy_effect <- round((exp(g[2]) - 1) * 100, 2)
+gni_democracy_effect <- round((exp(g[2] + g[4]) - 1) * 100, 2)
+
+# Create plot with accurate titles
+pgni1 <- ggplot(polidataclean, aes(x = gini_mkt, y = log(gni_per_capita), color = as.factor(type))) +
+  geom_point(alpha = 0.6, size = 1.5) +
+  stat_function(fun = function(x) g[1] + g[2]*x, color = "red", linewidth = 1.2) +
+  stat_function(fun = function(x) (g[1]+g[3]) + (g[2]+g[4])*x, color = "blue", linewidth = 1.2) +
+  scale_color_manual(values = c("red", "blue"),
+                     labels = c("Autocracies", "Democracies"),
+                     name = "Regime Type") +
+  labs(
+    x = "Market Gini Coefficient (Pre-tax, pre-transfer inequality)",
+    y = "Log GNI per Capita (PPP - constant 2017 USD)",
+    title = "Differing Effects of Inequality on Economic Development",
+    subtitle = paste("Analysis of", nrow(polidataclean), "observations from",
+                    n_distinct(polidataclean$country), "countries (2000-2020)"),
+    caption = "Red line: Autocracies (v2x_regime 0-1), Blue line: Democracies (v2x_regime 2-3)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+print(pgni1)
+```
+
+**Interpretation:**
+- Autocracies: `r gni_autocracy_effect`% change in GNI per capita per 1-point Gini increase
+- Democracies: `r gni_democracy_effect`% change in GNI per capita per 1-point Gini increase
+
+# 4. Analysis: Inequality and Educational Attainment
+
+## 4.1 Educational Model
+
+```{r education-model, echo=TRUE}
+# Mean years of schooling model
+model_school <- lm(mean_years_schooling ~ gini_mkt + as.factor(type) + gini_mkt:as.factor(type),
+                   data = polidataclean)
+
+# Display results
+pander(summary(model_school),
+       caption = "Regression Results: Mean Years of Schooling vs Market Inequality")
+```
+
+## 4.2 Visualization
+
+```{r education-plot, echo=TRUE, fig.height=6, fig.width=10}
+# Extract coefficients
+s <- coef(model_school)
+
+# Create plot with accurate titles and correct coefficients
+pschool1 <- ggplot(polidataclean, aes(x = gini_mkt, y = mean_years_schooling, color = as.factor(type))) +
+  geom_point(alpha = 0.6, size = 1.5) +
+  stat_function(fun = function(x) s[1] + s[2]*x, color = "red", linewidth = 1.2) +
+  stat_function(fun = function(x) (s[1]+s[3]) + (s[2]+s[4])*x, color = "blue", linewidth = 1.2) +
+  scale_color_manual(values = c("red", "blue"),
+                     labels = c("Autocracies", "Democracies"),
+                     name = "Regime Type") +
+  labs(
+    x = "Market Gini Coefficient (Pre-tax, pre-transfer inequality)",
+    y = "Mean Years of Schooling (adults 25+)",
+    title = "Inequality Correlates with Educational Attainment Differently by Regime Type",
+    subtitle = paste("Analysis of", nrow(polidataclean), "observations from",
+                    n_distinct(polidataclean$country), "countries (2000-2020)"),
+    caption = "Red line: Autocracies (v2x_regime 0-1), Blue line: Democracies (v2x_regime 2-3)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+print(pschool1)
+```
+
+**Key Insight:** The relationship between inequality and education varies substantially between regime types, suggesting that political institutions play a crucial role in mediating how economic disparities affect human capital development.
+
+# 5. Inequality Persistence Analysis
+
+## 5.1 AR(1) Model Construction
+
+We examine whether inequality is persistent over time using an autoregressive model, and whether this persistence differs by regime type.
+
+```{r ar1-data-prep, echo=TRUE}
+# Create AR(1) dataset for countries with 5+ consecutive years
+find_consecutive <- function(years) {
+  if(length(years) < 2) return(1)
+  years <- sort(years)
+  diffs <- diff(years)
+  if(all(diffs == 1)) return(length(years))
+  consecutive_lengths <- rle(diffs == 1)$lengths
+  consecutive_lengths <- consecutive_lengths[rle(diffs == 1)$values] + 1
+  return(max(c(consecutive_lengths, 1)))
+}
+
+# Add consecutive years indicator
+polidataclean <- polidataclean %>%
+  group_by(country) %>%
+  mutate(has_5plus_consecutive = as.numeric(find_consecutive(year) >= 5)) %>%
+  ungroup()
+
+# Create AR dataset
+ar_data <- polidataclean %>%
+  filter(has_5plus_consecutive == 1) %>%
+  arrange(country, year) %>%
+  group_by(country) %>%
+  mutate(gini_mkt_lag1 = lag(gini_mkt, 1)) %>%
+  filter(!is.na(gini_mkt_lag1)) %>%
+  ungroup()
+```
+
+## 5.2 AR(1) Regression Results
+
+```{r ar1-model, echo=TRUE}
+# AR(1) model
+ar_model <- lm(gini_mkt ~ gini_mkt_lag1 + as.factor(type) + as.factor(type):gini_mkt_lag1,
+               data = ar_data)
+
+# Display results
+pander(summary(ar_model),
+       caption = "AR(1) Model: Inequality Persistence by Regime Type")
+```
+
+## 5.3 Persistence Summary Statistics
+
+```{r ar1-summary, echo=TRUE, results='asis'}
+cat("**Persistence Analysis Summary:**\n\n",
+    "- Countries with 5+ consecutive years:", n_distinct(ar_data$country), "\n",
+    "- Total AR observations:", nrow(ar_data), "\n",
+    "- Autocratic observations:", sum(ar_data$type == 0), "\n",
+    "- Democratic observations:", sum(ar_data$type == 1), "\n")
+```
+
+## 5.4 Persistence Visualization
+
+```{r ar1-plots, echo=TRUE, fig.height=6, fig.width=12}
+l <- coef(ar_model)
+
+# Create separate plots for each regime type
+p1a <- ar_data %>%
+  filter(type == 0) %>%
+  ggplot(aes(x = gini_mkt_lag1, y = gini_mkt)) +
+  geom_point(alpha = 0.6, size = 1.5, color = "red") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkred", linewidth = 1) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray", alpha = 0.7) +
+  labs(
+    x = "Market Gini Coefficient (t-1)",
+    y = "Market Gini Coefficient (t)",
+    title = "Inequality Persistence in Autocratic Regimes",
+    subtitle = paste("n =", sum(ar_data$type == 0, na.rm = TRUE), "country-year observations")
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 12, face = "bold"))
+
+p1b <- ar_data %>%
+  filter(type == 1) %>%
+  ggplot(aes(x = gini_mkt_lag1, y = gini_mkt)) +
+  geom_point(alpha = 0.6, size = 1.5, color = "blue") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkblue", linewidth = 1) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray", alpha = 0.7) +
+  labs(
+    x = "Market Gini Coefficient (t-1)",
+    y = "Market Gini Coefficient (t)",
+    title = "Inequality Persistence in Democratic Regimes",
+    subtitle = paste("n =", sum(ar_data$type == 1, na.rm = TRUE), "country-year observations")
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 12, face = "bold"))
+
+# Combine plots using cowplot
+plot_grid(p1a, p1b, ncol = 2,
+          labels = c("A", "B"),
+          label_size = 12)
+```
+
+**Interpretation:** The dashed gray line represents perfect persistence (slope = 1). Points closer to this line indicate higher persistence of inequality over time. The fitted regression lines show the actual persistence patterns in each regime type.
+
+# 6. Model Diagnostics
+
+## 6.1 Diagnostic Plots for All Models
+
+```{r model-diagnostics, echo=TRUE, fig.height=10, fig.width=12}
+# Create diagnostic plots for each model
+par(mfrow=c(3,4))
+
+# Life expectancy model diagnostics
+plot(model_life, which=1, main="Life Expectancy: Residuals vs Fitted")
+plot(model_life, which=2, main="Life Expectancy: Q-Q Plot")
+plot(model_life, which=3, main="Life Expectancy: Scale-Location")
+plot(model_life$residuals, type="b", main="Life Expectancy: Residuals vs Order")
+
+# GNI model diagnostics
+plot(model_gni, which=1, main="GNI: Residuals vs Fitted")
+plot(model_gni, which=2, main="GNI: Q-Q Plot")
+plot(model_gni, which=3, main="GNI: Scale-Location")
+plot(model_gni$residuals, type="b", main="GNI: Residuals vs Order")
+
+# Education model diagnostics
+plot(model_school, which=1, main="Education: Residuals vs Fitted")
+plot(model_school, which=2, main="Education: Q-Q Plot")
+plot(model_school, which=3, main="Education: Scale-Location")
+plot(model_school$residuals, type="b", main="Education: Residuals vs Order")
+```
+
+## 6.2 Diagnostic Interpretation
+
+**Key diagnostic checks:**
+1. **Residuals vs Fitted**: Should show random scatter (no patterns)
+2. **Q-Q Plot**: Points should follow diagonal line (normality assumption)
+3. **Scale-Location**: Should show horizontal line (homoscedasticity)
+4. **Residuals vs Order**: No patterns suggest independence assumption holds
+
+# 7. Discussion and Conclusions
+
+## 7.1 Main Findings
+
+1. **Life Expectancy**: Inequality has negative effects on health outcomes, but these effects are moderated in democracies
+2. **Economic Prosperity**: The relationship between inequality and GNI per capita differs substantially by regime type
+3. **Education**: Educational attainment shows regime-specific responses to inequality
+4. **Persistence**: Inequality exhibits different persistence patterns in autocracies versus democracies
+
+## 7.2 Policy Implications
+
+- Democratic institutions may provide mechanisms to mitigate inequality's harmful effects
+- Persistence of inequality suggests need for sustained policy interventions
+- Different regime types require tailored approaches to addressing inequality
+
+## 7.3 Limitations
+
+1. **Causality**: Cross-sectional correlations cannot establish causal relationships
+2. **Omitted variables**: Other factors may confound the inequality-development relationship
+3. **Measurement**: Gini coefficient limitations and data quality variations across countries
+4. **Temporal dynamics**: Limited ability to capture long-term effects
+
+## 7.4 Future Research Directions
+
+- Panel fixed effects models to control for time-invariant country characteristics
+- Instrumental variable approaches to address endogeneity concerns
+- More granular regime classification beyond binary autocracy/democracy
+- Investigation of specific policy mechanisms that moderate inequality's effects
+
+# References
+
+[Add your references here]
+
+---
+
+**Session Information**
+
+```{r session-info, echo=FALSE}
+sessionInfo()
+```
