@@ -1,0 +1,1392 @@
+---
+title: "Should Do Ch 5 — Solow Simulations and Policy Experiments"
+author: "Wyatt Whiting"
+date: today
+format: 
+  html:
+    embed-resources: true
+    toc: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{python}
+#| echo: false
+#| warning: false
+#| message: false
+#| results: hide
+
+# Input your libraries and packages here. This will not display on the HTML rendering.
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+```
+
+## Objective
+
+This assignment strengthens your ability to use the Solow model as a quantitative measurement tool rather than a set of definitions. You will build a numerical simulation in intensive units, use it to predict transition dynamics under several policy-relevant shocks, and connect those numerical paths back to the model’s logic using an annotated phase diagram and careful interpretation. The emphasis is on producing a reproducible analysis product that combines correct coding, correct economics, and clear judgment about what the model can and cannot say about policy.
+
+## Learning Outcomes Assessed (subset)
+
+<details>
+
+<summary><strong>5.1 Utilize the Solow Model</strong></summary>
+
+<details style="margin-left: 20px;">
+<summary>5.1.1 State the Solow Model mathematically</summary>
+
+* 5.1.1.1 Define a stock variable
+* 5.1.1.2 Define a flow variable
+* 5.1.1.4 State the production function
+* 5.1.1.5 State the intratemporal resource constraint
+* 5.1.1.6 State the intertemporal resource constraint (law of motion)
+* 5.1.1.7 Explain the economic intuition behind the law of motion
+
+</details>
+
+<details style="margin-left: 20px;">
+<summary>5.1.2 Find a solution to the Solow Model</summary>
+
+* 5.1.2.3 Draw the full Solow phase diagram
+* 5.1.2.6 Identify steady-state capital, investment, consumption, and output in the phase diagram
+* 5.1.2.7 Explain transition dynamics using the phase diagram
+* 5.1.2.9 Solve for steady-state capital and output in levels and intensive units
+* 5.1.2.11 Define the principle of transition dynamics intuitively
+
+</details>
+
+<details style="margin-left: 20px;">
+<summary>5.1.3 Conduct quantitative experiments with the Solow Model</summary>
+
+* 5.1.3.1 Explain dynamics and steady-state changes from a change in the investment rate
+* 5.1.3.3 Explain dynamics and steady-state changes from a change in the capital stock
+* 5.1.3.5 Explain dynamics and steady-state changes from a change in TFP
+
+</details>
+
+</details>
+
+<details>
+
+<summary><strong>5.2 Appraise the contributions made by the Solow Model</strong></summary>
+
+* 5.2.2 List the strengths of the Solow Model
+* 5.2.3 List the weaknesses of the Solow Model
+
+</details>
+
+## Sources (required)
+
+You must use all of the following:
+
+1. Textbook: Chapter 5 (Solow model, steady state, transition dynamics, Golden Rule)
+
+Additional sources may be used for context, but they do not replace these required sources.
+
+## Preliminaries 
+
+### Parameter Values
+
+Use the following baseline parameters in **all parts** unless section specific instructions explicitly changes a parameter:
+
+* Production function: $y_t = Ak_t^{\alpha}$
+* Baseline parameters: $\alpha = 1/3$, $A = 1.0$, $s = 0.20$, $\delta = 0.05$
+
+You will work in **intensive units (per worker)** and use the simplest Solow model (no population growth and no technology growth).
+
+### Timing and experiment convention
+
+All experiments occur at **time $t=5$** and are **pre-production**. That means the experiment changes the object used to produce $y_5$, and then the period-5 law of motion uses saving and depreciation based on that same period-5 production.
+
+To make the “before vs after” visible in every simulation, your outputs must clearly show:
+
+* the baseline path for $t=0,1,2,3,4$ (pre-experiment), and
+* the post-experiment transition beginning at $t=5$.
+
+Every relevant figure must mark $t=5$ (for example, with a vertical dashed line and/or an annotation).
+
+## Part A — Baseline Solow Simulation
+
+#### 1. Write the model equations you will implement
+
+State the Solow model in intensive units, including the production function, the resource constraint, and the capital law of motion. Make clear what is time-$t$ vs time-$t+1$. Solve analytically for the steady-state capital level $k^*$ implied by the baseline parameter values. Use the numerical values used in the baseline to calculate the value of the steady state.
+
+::: {.callout-note title="Answer" icon="false"}
+
+**Production function (intensive form):**
+
+$$y_t = A k_t^{\alpha}$$
+
+**Intratemporal resource constraint:**
+
+$$y_t = c_t + i_t, \qquad i_t = s y_t, \qquad c_t = (1 - s) y_t$$
+
+**Law of motion for capital (intertemporal resource constraint):**
+
+$$k_{t+1} = k_t + s A k_t^{\alpha} - \delta k_t$$
+
+Here $k_t$ is the capital stock per worker (a **stock** variable measured at the start of period $t$), while $y_t$, $c_t$, and $i_t$ are **flow** variables produced and allocated within period $t$. The law of motion says next period's capital equals today's capital plus new investment ($sAk_t^\alpha$) minus depreciation ($\delta k_t$).  $t=1$ is the following period for any given period of $t$.
+
+**Steady-state derivation.** In steady state $k_{t+1} = k_t = k^*$, so net investment is zero:
+
+$$s A (k^*)^{\alpha} = \delta k^* \implies (k^*)^{\alpha - 1} = \frac{\delta}{s A} \implies k^* = \left(\frac{s A}{\delta}\right)^{\frac{1}{1-\alpha}}$$
+
+**Numerical evaluation** with $\alpha = 1/3$, $A = 1$, $s = 0.20$, $\delta = 0.05$:
+
+$$k^* = \left(\frac{0.20 \times 1.0}{0.05}\right)^{\frac{1}{1 - 1/3}} = 4^{3/2} = 8$$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+alpha = 1/3
+A = 1.0
+s = 0.20
+delta = 0.05
+
+k_star = (s * A / delta) ** (1 / (1 - alpha))
+y_star = A * k_star ** alpha
+c_star = (1 - s) * y_star
+
+print(f"k* = {k_star:.4f}")
+print(f"y* = {y_star:.4f}")
+print(f"c* = {c_star:.4f}")
+```
+:::
+
+#### 2. Baseline simulation from below steady state
+
+Set the initial capital stock to half of the steady-state value, $k_0 = \frac{1}{2}k^*$. Simulate the economy forward until it reaches the steady state, by convergence through a *while loop*, and show 10 periods of simulation after you reach steady state. For example, identify the first period $t^{conv}$ such that $k_t$ is “close enough” to $k^*$ and stays close thereafter. Report a convergence tolerance and justify it briefly: a relative error tolerance like $\frac{|k_t-k^*|}{k^*} < \epsilon$. Then run the simulation through $t^{conv} + 10$. 
+
+Please display the first 5 rows of your final simulated dataset and provide separate time-series plots of $k_t$, $y_t$, and $c_t$ from $t=0$ through $t=t^{conv}+10$, clearly labeled and in tabset.
+
+::: {.callout-note title="Answer" icon="false"}
+
+We set $k_0 = \tfrac{1}{2}k^* = 4$ and use a relative‐error tolerance of $\epsilon = 10^{-4}$, meaning convergence is considered at the first period where $\frac{|k_t - k^*|}{k^*} < 10^{-4}$. At $k^* = 8$ this requires $k_t$ to be within $0.0008$ of steady state — far below any visually or economically meaningful difference, yet tight enough that the economy is effectively at rest without inflating the simulation with dozens of indistinguishable periods.
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# --- Initial condition (alpha, A, s, delta, k_star from A1) ---
+k0 = 0.5 * k_star   # = 4
+
+# --- Convergence settings ---
+epsilon = 1e-4
+
+# --- Simulate with a while loop ---
+t_list = [0]
+k_list = [k0]
+
+k_t = k0
+t   = 0
+t_conv = None
+
+while True:
+    # Check convergence
+    if t_conv is None and abs(k_t - k_star) / k_star < epsilon:
+        t_conv = t
+
+    # Stop after 10 extra periods past convergence
+    if t_conv is not None and t >= t_conv + 10:
+        break
+
+    # Law of motion
+    k_next = k_t + s * A * k_t**alpha - delta * k_t
+    t   += 1
+    k_t  = k_next
+    t_list.append(t)
+    k_list.append(k_t)
+
+# --- Build dataframe ---
+df = pd.DataFrame({
+    't':   t_list,
+    'k_t': k_list
+})
+df['y_t'] = A * df['k_t']**alpha
+df['i_t'] = s * df['y_t']
+df['c_t'] = (1 - s) * df['y_t']
+
+print(f"Convergence tolerance: epsilon = {epsilon}")
+print(f"Convergence period:    t_conv  = {t_conv}")
+print(f"Simulation end:        t       = {t_list[-1]}")
+print()
+df.head()
+```
+
+::: {.panel-tabset}
+
+### Capital $k_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.plot(df['t'], df['k_t'], linewidth=2)
+ax.axhline(k_star, color='red', linestyle='--', label=f'$k^* = {k_star:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$k_t$')
+ax.set_title('Capital per Worker')
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+### Output $y_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.plot(df['t'], df['y_t'], linewidth=2, color='green')
+ax.axhline(y_star, color='red', linestyle='--', label=f'$y^* = {y_star:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$y_t$')
+ax.set_title('Output per Worker')
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+### Consumption $c_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.plot(df['t'], df['c_t'], linewidth=2, color='purple')
+ax.axhline(c_star, color='red', linestyle='--', label=f'$c^* = {c_star:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$c_t$')
+ax.set_title('Consumption per Worker')
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+:::
+
+#### 3. Phase diagram for the baseline model
+
+Create an annotated Solow phase diagram for the baseline economy. Your diagram must clearly label $s f(k)$, $\delta k$, and the steady state $k^*$. Add short annotations explaining the direction of motion (why $k$ rises when below $k^*$ and falls when above $k^*$). Your diagram must be coded, not a screenshot of a textbook figure.
+
+::: {.callout-note title="Answer" icon="false"}
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# --- k grid (uses alpha, A, s, delta, k_star from A1) ---
+k = np.linspace(0.01, 14, 500)
+f_k     = A * k**alpha              # output curve
+sf_k    = s * A * k**alpha          # investment curve
+dep_k   = delta * k                 # depreciation line
+delta_k = sf_k - dep_k              # net change in capital
+
+# --- Phase diagram ---
+fig, ax = plt.subplots(figsize=(9, 5))
+
+ax.plot(k, f_k,   linewidth=2, label=r'$Ak^{\alpha}$ (output)', color='black', linestyle='-.')
+ax.plot(k, sf_k,  linewidth=2, label=r'$sAk^{\alpha}$ (investment)')
+ax.plot(k, dep_k, linewidth=2, label=r'$\delta k$ (depreciation)', color='orange')
+
+# Shade the gap between the curves
+ax.fill_between(k, dep_k, sf_k,
+                where=(sf_k > dep_k), alpha=0.15, color='green')
+ax.fill_between(k, dep_k, sf_k,
+                where=(sf_k < dep_k), alpha=0.15, color='red')
+
+# Mark k*
+ax.axvline(k_star, color='grey', linestyle=':', linewidth=1)
+ax.plot(k_star, s * A * k_star**alpha, 'ko', markersize=8, zorder=5)
+ax.annotate(f'$k^* = {k_star:.0f}$',
+            xy=(k_star, s * A * k_star**alpha),
+            xytext=(k_star + 1.2, s * A * k_star**alpha + 0.08),
+            fontsize=12, ha='left',
+            arrowprops=dict(arrowstyle='->', color='black'))
+
+# Mark consumption as gap between f(k*) and sf(k*) at steady state
+f_at_kstar  = A * k_star**alpha
+sf_at_kstar = s * A * k_star**alpha
+ax.plot([k_star, k_star], [sf_at_kstar, f_at_kstar],
+        color='purple', linewidth=2.5, solid_capstyle='butt')
+ax.text(k_star + 0.3, (f_at_kstar + sf_at_kstar) / 2,
+        f'$c^* = {c_star:.2f}$', fontsize=10, color='purple', va='center')
+
+# Direction-of-motion arrows and annotations
+# Below k*: net investment > 0, so k rises
+k_low = 3.5
+y_low = s * A * k_low**alpha
+ax.annotate('',
+            xy=(k_low + 1.2, y_low - 0.02),
+            xytext=(k_low, y_low - 0.02),
+            arrowprops=dict(arrowstyle='->', lw=2, color='green'))
+ax.text(k_low - 0.3, y_low + 0.06,
+        r'$sAk^\alpha > \delta k$' '\n' r'$\Delta k > 0$: $k$ rises',
+        fontsize=9, color='green', va='bottom')
+
+# Above k*: net investment < 0, so k falls
+k_high = 12.0
+y_high = s * A * k_high**alpha
+ax.annotate('',
+            xy=(k_high - 1.2, y_high + 0.02),
+            xytext=(k_high, y_high + 0.02),
+            arrowprops=dict(arrowstyle='->', lw=2, color='red'))
+ax.text(k_high + 0.2, y_high - 0.03,
+        r'$sAk^\alpha < \delta k$' '\n' r'$\Delta k < 0$: $k$ falls',
+        fontsize=9, color='red', va='top')
+
+ax.set_xlabel('Capital per worker $k$', fontsize=12)
+ax.set_ylabel('Investment / Depreciation per worker', fontsize=12)
+ax.set_title('Solow Phase Diagram (Baseline)', fontsize=13)
+ax.legend(fontsize=11)
+ax.set_xlim(0, 14)
+ax.set_ylim(0, 2.6)
+plt.tight_layout()
+plt.show()
+```
+
+When $k < k^*$, the investment curve $sAk^\alpha$ lies above the depreciation line $\delta k$ (green region), so net investment $\Delta k = sAk^\alpha - \delta k > 0$ and capital grows toward the steady state. When $k > k^*$, depreciation exceeds investment (red region), so $\Delta k < 0$ and capital shrinks back toward $k^*$. At $k^* = 8$ the two curves intersect and $\Delta k = 0$ — the economy is at rest.
+
+:::
+
+## Part B — Quantitative Experiment 1: Savings Rate 
+Scenario: The economy begins in its steady state under the baseline parameters. At **time $t=5$**, the savings rate changes immediately and permanently from $s_0=0.2$ to $s_1= 0.1$.
+
+#### 1. Analytical prediction using the phase diagram
+
+Explain how and why the phase diagram changes when $s$ falls. State the predicted direction of change for $k$, $y$, $i$, and $c$ at $t=5$ and over time, and whether the steady state changes. 
+
+::: {.callout-note title="Answer" icon="false"}
+
+Immediate Effects
+
+1. Decrease in Investment ($i= s * y$)
+2. Increase in Consumption ($c=(1-s)y$) ($s$ as primary driver, $y$ is thus far unaffected)
+
+Transitional dynamics
+
+1. Decrease to Investment ($i=s*y$)
+2. Decrease in $k$ for all periods ($k=k_0+sy-\delta k$) ($s$ as primary driver)
+3. Decrease in output ($y=Ak^{\alpha}$)
+4. Decrease in consumption ($c=(1-s)y$) ($y$ as primary driver)
+
+
+Effects to Steady State:
+
+1. Decrease in overall $k^*$ ($k^*=(\frac{sA}{d})^{\frac{1}{1-\alpha}}$)
+2. Decrease in output levels ($y=Ak^{\alpha}$)
+3. Decrease to investment levels ($i=s*y$)
+4. Decrease in overall consumption ($c=(1-s)y$) ($y$ as primary driver)
+
+Important Considerations:
+Consumption, as the difference between $y$ and $i$, will immediately increase due to an increased portion of output going to consumption rather than savings. However, as it transitions back to the new steady state, it will be smaller than before due to the decrease in output, even if the share is increased. Furthermore, the investment line ($sf(k)$) will shift downward on the phase diagram; this is what will ultimately produce the rest of the changes seen over the long run.
+
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show phase diagram"
+
+# --- Phase diagram: savings-rate drop ---
+k_grid = np.linspace(0.01, 14, 500)
+
+f_k      = A * k_grid**alpha             # output curve (unchanged)
+sf_k_old = s  * A * k_grid**alpha       # old investment curve (s = 0.20)
+sf_k_new = 0.10 * A * k_grid**alpha     # new investment curve (s = 0.10)
+dep_k    = delta * k_grid                # depreciation (unchanged)
+
+k_star_old = (s * A / delta) ** (1 / (1 - alpha))
+k_star_new = (0.10 * A / delta) ** (1 / (1 - alpha))
+
+fig, ax = plt.subplots(figsize=(9, 5))
+
+ax.plot(k_grid, f_k, linewidth=2, label=r'$Ak^{\alpha}$ (output)', color='black', linestyle='-.')
+ax.plot(k_grid, sf_k_old, linewidth=2, label=r'$s_0 A k^{\alpha}$ ($s_0=0.20$)', color='steelblue')
+ax.plot(k_grid, sf_k_new, linewidth=2, label=r'$s_1 A k^{\alpha}$ ($s_1=0.10$)', color='coral',
+        linestyle='--')
+ax.plot(k_grid, dep_k, linewidth=2, label=r'$\delta k$', color='orange')
+
+# Mark old steady state
+ax.plot(k_star_old, delta * k_star_old, 'ko', markersize=8, zorder=5)
+ax.annotate(f'$k^*_0 = {k_star_old:.0f}$',
+            xy=(k_star_old, delta * k_star_old),
+            xytext=(k_star_old + 1.0, delta * k_star_old + 0.08),
+            fontsize=11, ha='left',
+            arrowprops=dict(arrowstyle='->', color='black'))
+
+# Mark new steady state
+ax.plot(k_star_new, delta * k_star_new, 'ro', markersize=8, zorder=5)
+ax.annotate(f'$k^*_1 = {k_star_new:.1f}$',
+            xy=(k_star_new, delta * k_star_new),
+            xytext=(k_star_new - 2.5, delta * k_star_new + 0.12),
+            fontsize=11, ha='left', color='red',
+            arrowprops=dict(arrowstyle='->', color='red'))
+
+# Mark consumption at old steady state: c*_0 = f(k*_0) - s0*f(k*_0)
+f_old  = A * k_star_old**alpha
+sf_old = s * A * k_star_old**alpha
+c_old  = (1 - s) * A * k_star_old**alpha
+ax.plot([k_star_old, k_star_old], [sf_old, f_old],
+        color='purple', linewidth=2.5, solid_capstyle='butt')
+ax.text(k_star_old + 0.3, (f_old + sf_old) / 2,
+        f'$c^*_0 = {c_old:.2f}$', fontsize=10, color='purple', va='center')
+
+# Mark consumption at new steady state: c*_1 = f(k*_1) - s1*f(k*_1)
+f_new  = A * k_star_new**alpha
+sf_new = 0.10 * A * k_star_new**alpha
+c_new  = (1 - 0.10) * A * k_star_new**alpha
+ax.plot([k_star_new, k_star_new], [sf_new, f_new],
+        color='purple', linewidth=2.5, solid_capstyle='butt')
+ax.text(k_star_new - 0.3, (f_new + sf_new) / 2,
+        f'$c^*_1 = {c_new:.2f}$', fontsize=10, color='purple', va='center', ha='right')
+
+# Directional arrow: k falls from k*_0 toward k*_1
+mid_k = (k_star_old + k_star_new) / 2
+ax.annotate('',
+            xy=(k_star_new + 0.3, 0.02),
+            xytext=(k_star_old - 0.3, 0.02),
+            arrowprops=dict(arrowstyle='->', lw=2, color='red'))
+ax.text(mid_k, 0.05, r'$\Delta k < 0$: $k$ falls', fontsize=10,
+        ha='center', color='red')
+
+ax.set_xlabel('Capital per worker $k$', fontsize=12)
+ax.set_ylabel('Investment / Depreciation per worker', fontsize=12)
+ax.set_title('Phase Diagram — Savings Rate Drop ($s: 0.20 \\to 0.10$)', fontsize=13)
+ax.legend(fontsize=10)
+ax.set_xlim(0, 14)
+ax.set_ylim(0, 2.6)
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+#### 2. Numerical simulation and time-series evidence
+
+Simulate the shock and provide time series for $k_t$, $y_t$, $i_t$, and $c_t$, clearly marking $t=5$. To make pre- vs post-experiment visible, your main plot must include the full time range and clearly separate the “pre” segment ($t=0$ to $4$) from the post-shock transition (starting at $t=5$). Use the “converge + 10” period rule applied to the post-shock steady state.
+
+Mark in your charts: the initial steady state $(k^*_0, y^*_0, c^*_0)$ under $s_0$, the new steady state $(k^{*}_1, y^{*}_1, c^{*}_1)$ under $s_1$, and the percent change in steady-state consumption from the old to the new steady state.
+
+
+
+::: {.callout-note title="Answer" icon="false"}
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# --- Shock parameters ---
+s0 = s            # 0.20 (from A1)
+s1 = 0.10
+t_shock = 5
+
+# --- Steady states ---
+k_star0 = (s0 * A / delta) ** (1 / (1 - alpha))
+y_star0 = A * k_star0**alpha
+i_star0 = s0 * y_star0
+c_star0 = (1 - s0) * y_star0
+
+k_star1 = (s1 * A / delta) ** (1 / (1 - alpha))
+y_star1 = A * k_star1**alpha
+i_star1 = s1 * y_star1
+c_star1 = (1 - s1) * y_star1
+
+pct_c = (c_star1 - c_star0) / c_star0 * 100
+
+print(f"Old steady state:  k*₀ = {k_star0:.4f},  y*₀ = {y_star0:.4f},  "
+      f"i*₀ = {i_star0:.4f},  c*₀ = {c_star0:.4f}")
+print(f"New steady state:  k*₁ = {k_star1:.4f},  y*₁ = {y_star1:.4f},  "
+      f"i*₁ = {i_star1:.4f},  c*₁ = {c_star1:.4f}")
+print(f"% change in c*:   {pct_c:.2f}%")
+
+# --- Simulation ---
+# Pre-shock: economy sits at k_star0 for t = 0..4
+t_list_b = list(range(t_shock))
+k_list_b = [k_star0] * t_shock
+
+# Post-shock: apply s1 starting at t=5, converge to k_star1
+k_t = k_star0
+t   = t_shock
+t_conv_b = None
+
+while True:
+    # At t_shock, s changes pre-production so this period uses s1
+    s_now = s1
+    y_now = A * k_t**alpha
+    k_next = k_t + s_now * y_now - delta * k_t
+
+    t_list_b.append(t)
+    k_list_b.append(k_t)
+
+    if t_conv_b is None and abs(k_t - k_star1) / k_star1 < epsilon:
+        t_conv_b = t
+
+    if t_conv_b is not None and t >= t_conv_b + 10:
+        break
+
+    k_t = k_next
+    t  += 1
+
+# Build dataframe
+df_b = pd.DataFrame({'t': t_list_b, 'k_t': k_list_b})
+df_b['y_t'] = A * df_b['k_t']**alpha
+df_b['s_t'] = np.where(df_b['t'] < t_shock, s0, s1)
+df_b['i_t'] = df_b['s_t'] * df_b['y_t']
+df_b['c_t'] = (1 - df_b['s_t']) * df_b['y_t']
+
+print(f"\nConvergence period (post-shock): t_conv = {t_conv_b}")
+print(f"Simulation end: t = {t_list_b[-1]}")
+```
+
+::: {.panel-tabset}
+
+### Capital $k_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Shock at $t={t_shock}$')
+ax.plot(df_b['t'], df_b['k_t'], linewidth=2)
+ax.axhline(k_star0, color='steelblue', linestyle='--', linewidth=1.5, label=f'$k^*_0 = {k_star0:.2f}$')
+ax.axhline(k_star1, color='coral', linestyle='--', linewidth=1.5, label=f'$k^*_1 = {k_star1:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$k_t$')
+ax.set_title('Capital per Worker')
+ax.legend(loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+### Output $y_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Shock at $t={t_shock}$')
+ax.plot(df_b['t'], df_b['y_t'], linewidth=2, color='green')
+ax.axhline(y_star0, color='steelblue', linestyle='--', linewidth=1.5, label=f'$y^*_0 = {y_star0:.2f}$')
+ax.axhline(y_star1, color='coral', linestyle='--', linewidth=1.5, label=f'$y^*_1 = {y_star1:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$y_t$')
+ax.set_title('Output per Worker')
+ax.legend(loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+### Investment $i_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Shock at $t={t_shock}$')
+ax.plot(df_b['t'], df_b['i_t'], linewidth=2, color='orange')
+ax.axhline(i_star0, color='steelblue', linestyle='--', linewidth=1.5, label=f'$i^*_0 = {i_star0:.2f}$')
+ax.axhline(i_star1, color='coral', linestyle='--', linewidth=1.5, label=f'$i^*_1 = {i_star1:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$i_t$')
+ax.set_title('Investment per Worker')
+ax.legend(loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+### Consumption $c_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Shock at $t={t_shock}$')
+ax.plot(df_b['t'], df_b['c_t'], linewidth=2, color='purple')
+
+# Mark both steady states
+ax.axhline(c_star0, color='steelblue', linestyle='--', linewidth=1.5, label=f'$c^*_0 = {c_star0:.2f}$')
+ax.axhline(c_star1, color='coral', linestyle='--', linewidth=1.5, label=f'$c^*_1 = {c_star1:.2f}$')
+
+# Annotate the percentage change between old and new steady-state consumption
+mid_c = (c_star0 + c_star1) / 2
+ax.annotate('', xy=(t_shock + 2, c_star1), xytext=(t_shock + 2, c_star0),
+            arrowprops=dict(arrowstyle='<->', color='red', lw=1.5))
+ax.text(t_shock + 3, mid_c, f'{pct_c:+.1f}%', fontsize=11, color='red',
+        va='center', fontweight='bold')
+
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$c_t$')
+ax.set_title('Consumption per Worker')
+ax.legend(loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+:::
+
+#### 3. Policy judgment: what savings rate would you want?
+
+Using the Golden Rule logic from Chapter 5, state the savings rate that maximizes steady-state consumption under the baseline parameters ($\alpha=1/3$, $A=1$, $\delta=0.05$). Then write 150–250 words explaining whether the Golden Rule benchmark is a good policy target in this scenario. Discuss why the transition path matters for welfare across generations; include in your discussion the distributional consequences of the policy change: across time, different generations will sacrifice or reap the rewards of that sacrifice. 
+
+::: {.callout-note title="Answer" icon="false"}
+
+**Golden Rule derivation.** In steady state, investment equals depreciation ($sAk^{*\alpha} = \delta k^*$), so steady-state consumption is:
+
+$c^* = y^* - i^* = Ak^{*\alpha} - \delta k^*$
+
+Maximize with respect to $k^*$:
+
+$\frac{dc^*}{dk^*} = \alpha A (k^*)^{\alpha - 1} - \delta = 0 \implies \alpha A (k^*)^{\alpha - 1} = \delta$
+
+From the steady-state condition, solve for $s$:
+
+$s = \frac{\delta k^*}{A(k^*)^\alpha} = \frac{\delta (k^*)^{1-\alpha}}{A}$
+
+Substitute $\delta = \alpha A (k^*)^{\alpha - 1}$:
+
+$$s^{GR} = \frac{\alpha A (k^*)^{\alpha - 1} \cdot (k^*)^{1-\alpha}}{A} = \alpha$$
+
+**Result:** $s^{GR} = \alpha = \frac{1}{3} \approx 0.333$. Since the baseline uses $s = 0.20 < \alpha$, the economy is below the Golden Rule.
+
+If we take consumption as a measure of well-being, our simulation shows us that a policy that decreases savings will cause overall well-being to be higher than C @ t=5 for the next 20-30 periods, before the net change in consumption becomes negative. If periods were set as an entire year, for example, we would see that such a policy would be highly favorable for that generation, but that the subsequent generations would be markedly worse off. However, we would see the opposite effects of increasing savings from .20 to .33—immediate decreases in consumption, but an intergenerational overall increase. Because political periods are shorter than the time it takes to arrive at the new steady state, politicians have incentives towards policies that increase consumption within the current generation rather than overall increases. As a policy, shifting the savings rate to the Golden Rule is the best policy; however, it would require political discipline across multiple administrations, making it politically infeasible even if it is economically sound. Should a society be situated in such a way that the overall increases to welfare could be felt within relatively few political cycles, you may see this type of policy, but not in ones in which the time to arrive at a steady state is much longer than political periods.
+
+:::
+
+## Part C — Quantitative experiment 2: Technology Transfers
+
+Scenario: A country begins in its steady state under the baseline parameters. At **time $t=5$**, TFP rises permanently from $A_0 = 1.0$ to $A_1 = 1.5$ due to technology transfer policies.
+
+#### 1. Analytical prediction using the phase diagram
+
+Explain how and why an increase in $A$ affects $f(k)$, $sf(k)$, and the steady state using a phase diagram. Explain what happens to $y$, $k$, $i$, and $c$ at $t=5$ and during transition.
+
+::: {.callout-note title="Answer" icon="false"}
+
+When $A$ rises, both $f(k) = Ak^{\alpha}$ and $sf(k) = sAk^{\alpha}$ shift upward by the factor of increase. The depreciation line $\delta k$ is unchanged. This shifts the steady-state intersection to the right, increasing $k^*$. Because $A$ enters the production function directly, output, investment, and consumption all jump immediately at $t=5$ even before capital begins to accumulate.
+
+Immediate Effects
+
+1. Increase in output ($y = Ak^{\alpha}$) ($A$ as primary driver, $k$ is thus far unaffected)
+2. Increase in investment ($i = sy$) ($y$ as primary driver)
+3. Increase in consumption ($c = (1-s)y$) ($y$ as primary driver)
+
+Transitional Dynamics
+
+1. Increase in $k$ ($k=k_0+sy-\delta k$)
+2. Increase in output ($y=Ak^{\alpha}$)
+3. Increase in investment ($i=sy$)
+4. Increase in consumption ($c=(1-s)y$) ($y$ as primary driver)
+
+Effects to Steady State
+
+1. Increase in $k^*$ ($k^*=(\frac{sA}{\delta})^{\frac{1}{1-\alpha}}$)
+2. Increase in output ($y=Ak^{\alpha}$)
+3. Increase in investment ($i=sy$)
+4. Increase in consumption ($c=(1-s)y$) ($y$ as primary driver)
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show phase diagram"
+
+# --- Phase diagram: TFP increase ---
+k_grid = np.linspace(0.01, 20, 500)
+
+f_k_A0  = 1.0 * k_grid**alpha           # old output curve (A = 1.0)
+f_k_A1  = 1.5 * k_grid**alpha           # new output curve (A = 1.5)
+sf_k_A0 = s * 1.0 * k_grid**alpha       # old investment curve (A = 1.0)
+sf_k_A1 = s * 1.5 * k_grid**alpha       # new investment curve (A = 1.5)
+dep_k   = delta * k_grid                # depreciation (unchanged)
+
+k_star_A0 = (s * 1.0 / delta) ** (1 / (1 - alpha))
+k_star_A1 = (s * 1.5 / delta) ** (1 / (1 - alpha))
+
+fig, ax = plt.subplots(figsize=(9, 5))
+
+ax.plot(k_grid, f_k_A0, linewidth=2, label=r'$A_0 k^{\alpha}$ ($A_0=1.0$)', color='black', linestyle='-.')
+ax.plot(k_grid, f_k_A1, linewidth=2, label=r'$A_1 k^{\alpha}$ ($A_1=1.5$)', color='grey', linestyle='-.')
+ax.plot(k_grid, sf_k_A0, linewidth=2, label=r'$s A_0 k^{\alpha}$ ($A_0=1.0$)', color='steelblue')
+ax.plot(k_grid, sf_k_A1, linewidth=2, label=r'$s A_1 k^{\alpha}$ ($A_1=1.5$)', color='coral',
+        linestyle='--')
+ax.plot(k_grid, dep_k, linewidth=2, label=r'$\delta k$', color='orange')
+
+# Mark old steady state
+ax.plot(k_star_A0, delta * k_star_A0, 'ko', markersize=8, zorder=5)
+ax.annotate(f'$k^*_0 = {k_star_A0:.0f}$',
+            xy=(k_star_A0, delta * k_star_A0),
+            xytext=(k_star_A0 - 3.0, delta * k_star_A0 + 0.12),
+            fontsize=11, ha='left',
+            arrowprops=dict(arrowstyle='->', color='black'))
+
+# Mark new steady state
+ax.plot(k_star_A1, delta * k_star_A1, 'ro', markersize=8, zorder=5)
+ax.annotate(f'$k^*_1 = {k_star_A1:.1f}$',
+            xy=(k_star_A1, delta * k_star_A1),
+            xytext=(k_star_A1 + 1.0, delta * k_star_A1 + 0.08),
+            fontsize=11, ha='left', color='red',
+            arrowprops=dict(arrowstyle='->', color='red'))
+
+# Mark consumption at old steady state: c*_0 = A0*f(k*_0) - s*A0*f(k*_0)
+f_old_c  = 1.0 * k_star_A0**alpha
+sf_old_c = s * 1.0 * k_star_A0**alpha
+c_old_c  = (1 - s) * 1.0 * k_star_A0**alpha
+ax.plot([k_star_A0, k_star_A0], [sf_old_c, f_old_c],
+        color='purple', linewidth=2.5, solid_capstyle='butt')
+ax.text(k_star_A0 - 0.3, (f_old_c + sf_old_c) / 2,
+        f'$c^*_0 = {c_old_c:.2f}$', fontsize=10, color='purple', va='center', ha='right')
+
+# Mark consumption at new steady state: c*_1 = A1*f(k*_1) - s*A1*f(k*_1)
+f_new_c  = 1.5 * k_star_A1**alpha
+sf_new_c = s * 1.5 * k_star_A1**alpha
+c_new_c  = (1 - s) * 1.5 * k_star_A1**alpha
+ax.plot([k_star_A1, k_star_A1], [sf_new_c, f_new_c],
+        color='purple', linewidth=2.5, solid_capstyle='butt')
+ax.text(k_star_A1 + 0.3, (f_new_c + sf_new_c) / 2,
+        f'$c^*_1 = {c_new_c:.2f}$', fontsize=10, color='purple', va='center')
+
+# Directional arrow: k rises from k*_0 toward k*_1
+mid_k = (k_star_A0 + k_star_A1) / 2
+ax.annotate('',
+            xy=(k_star_A1 - 0.3, 0.02),
+            xytext=(k_star_A0 + 0.3, 0.02),
+            arrowprops=dict(arrowstyle='->', lw=2, color='green'))
+ax.text(mid_k, 0.06, r'$\Delta k > 0$: $k$ rises', fontsize=10,
+        ha='center', color='green')
+
+ax.set_xlabel('Capital per worker $k$', fontsize=12)
+ax.set_ylabel('Investment / Depreciation per worker', fontsize=12)
+ax.set_title('Phase Diagram — TFP Increase ($A: 1.0 \\to 1.5$)', fontsize=13)
+ax.legend(fontsize=10)
+ax.set_xlim(0, 20)
+ax.set_ylim(0, 4.0)
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+#### 2. Numerical simulation and time-series evidence
+
+Simulate the permanent TFP increase and provide time series for $k_t$, $y_t$, $i_t$, and $c_t$, clearly marking $t=5$. Report the percent change in steady-state output, then percent change in steady-state consumption, and a transition-speed metric you define and justify (for example, the first period when output closes 90% of the steady-state gap). Use the “converge + 10” rule applied to the post-shock steady state.
+
+::: {.callout-note title="Answer" icon="false"}
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# --- TFP shock parameters ---
+A0 = A          # 1.0 (from A1)
+A1 = 1.5
+t_shock = 5
+
+# --- Steady states under old and new A ---
+k_star_c0 = (s * A0 / delta) ** (1 / (1 - alpha))
+y_star_c0 = A0 * k_star_c0**alpha
+i_star_c0 = s * y_star_c0
+c_star_c0 = (1 - s) * y_star_c0
+
+k_star_c1 = (s * A1 / delta) ** (1 / (1 - alpha))
+y_star_c1 = A1 * k_star_c1**alpha
+i_star_c1 = s * y_star_c1
+c_star_c1 = (1 - s) * y_star_c1
+
+pct_y_c = (y_star_c1 - y_star_c0) / y_star_c0 * 100
+pct_c_c = (c_star_c1 - c_star_c0) / c_star_c0 * 100
+
+print(f"Old steady state:  k*₀ = {k_star_c0:.4f},  y*₀ = {y_star_c0:.4f},  "
+      f"i*₀ = {i_star_c0:.4f},  c*₀ = {c_star_c0:.4f}")
+print(f"New steady state:  k*₁ = {k_star_c1:.4f},  y*₁ = {y_star_c1:.4f},  "
+      f"i*₁ = {i_star_c1:.4f},  c*₁ = {c_star_c1:.4f}")
+print(f"% change in y*:   {pct_y_c:+.2f}%")
+print(f"% change in c*:   {pct_c_c:+.2f}%")
+
+# --- Simulation ---
+# Pre-shock: economy at old steady state for t = 0..4
+t_list_c = list(range(t_shock))
+k_list_c = [k_star_c0] * t_shock
+A_list_c = [A0] * t_shock
+
+# Post-shock: A jumps to A1 at t=5 pre-production
+k_t = k_star_c0
+t   = t_shock
+t_conv_c = None
+
+while True:
+    y_now  = A1 * k_t**alpha
+    k_next = k_t + s * y_now - delta * k_t
+
+    t_list_c.append(t)
+    k_list_c.append(k_t)
+    A_list_c.append(A1)
+
+    if t_conv_c is None and abs(k_t - k_star_c1) / k_star_c1 < epsilon:
+        t_conv_c = t
+
+    if t_conv_c is not None and t >= t_conv_c + 10:
+        break
+
+    k_t = k_next
+    t  += 1
+
+df_c = pd.DataFrame({'t': t_list_c, 'k_t': k_list_c, 'A_t': A_list_c})
+df_c['y_t'] = df_c['A_t'] * df_c['k_t']**alpha
+df_c['i_t'] = s * df_c['y_t']
+df_c['c_t'] = (1 - s) * df_c['y_t']
+
+# --- Transition-speed metric: first period output closes 90% of gap ---
+y_gap_total = y_star_c1 - y_star_c0
+t_90 = df_c.loc[df_c['y_t'] >= y_star_c0 + 0.9 * y_gap_total, 't'].iloc[0]
+
+print(f"\nConvergence period (post-shock): t_conv = {t_conv_c}")
+print(f"Simulation end: t = {t_list_c[-1]}")
+print(f"Transition speed: output closes 90% of gap at t = {t_90}")
+```
+
+We define transition speed as the first period in which output closes 90% of the steady-state gap. The 90% threshold captures when the economy has substantially realized the benefit of the shock without requiring full convergence, which is asymptotic and technically never complete.
+
+::: {.panel-tabset}
+
+### Capital $k_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Shock at $t={t_shock}$')
+ax.plot(df_c['t'], df_c['k_t'], linewidth=2)
+ax.axhline(k_star_c0, color='steelblue', linestyle='--', linewidth=1.5, label=f'$k^*_0 = {k_star_c0:.2f}$')
+ax.axhline(k_star_c1, color='coral', linestyle='--', linewidth=1.5, label=f'$k^*_1 = {k_star_c1:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$k_t$')
+ax.set_title('Capital per Worker — TFP Shock')
+ax.legend(loc='lower right')
+plt.tight_layout()
+plt.show()
+```
+
+### Output $y_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Shock at $t={t_shock}$')
+ax.plot(df_c['t'], df_c['y_t'], linewidth=2, color='green')
+ax.axhline(y_star_c0, color='steelblue', linestyle='--', linewidth=1.5, label=f'$y^*_0 = {y_star_c0:.2f}$')
+ax.axhline(y_star_c1, color='coral', linestyle='--', linewidth=1.5, label=f'$y^*_1 = {y_star_c1:.2f}$')
+mid_y = (y_star_c0 + y_star_c1) / 2
+ax.annotate('', xy=(t_shock + 2, y_star_c1), xytext=(t_shock + 2, y_star_c0),
+            arrowprops=dict(arrowstyle='<->', color='red', lw=1.5))
+ax.text(t_shock + 3, mid_y, f'{pct_y_c:+.1f}%', fontsize=11, color='red',
+        va='center', fontweight='bold')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$y_t$')
+ax.set_title('Output per Worker — TFP Shock')
+ax.legend(loc='lower right')
+plt.tight_layout()
+plt.show()
+```
+
+### Investment $i_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Shock at $t={t_shock}$')
+ax.plot(df_c['t'], df_c['i_t'], linewidth=2, color='orange')
+ax.axhline(i_star_c0, color='steelblue', linestyle='--', linewidth=1.5, label=f'$i^*_0 = {i_star_c0:.2f}$')
+ax.axhline(i_star_c1, color='coral', linestyle='--', linewidth=1.5, label=f'$i^*_1 = {i_star_c1:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$i_t$')
+ax.set_title('Investment per Worker — TFP Shock')
+ax.legend(loc='lower right')
+plt.tight_layout()
+plt.show()
+```
+
+### Consumption $c_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Shock at $t={t_shock}$')
+ax.plot(df_c['t'], df_c['c_t'], linewidth=2, color='purple')
+ax.axhline(c_star_c0, color='steelblue', linestyle='--', linewidth=1.5, label=f'$c^*_0 = {c_star_c0:.2f}$')
+ax.axhline(c_star_c1, color='coral', linestyle='--', linewidth=1.5, label=f'$c^*_1 = {c_star_c1:.2f}$')
+mid_cc = (c_star_c0 + c_star_c1) / 2
+ax.annotate('', xy=(t_shock + 2, c_star_c1), xytext=(t_shock + 2, c_star_c0),
+            arrowprops=dict(arrowstyle='<->', color='red', lw=1.5))
+ax.text(t_shock + 3, mid_cc, f'{pct_c_c:+.1f}%', fontsize=11, color='red',
+        va='center', fontweight='bold')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$c_t$')
+ax.set_title('Consumption per Worker — TFP Shock')
+ax.legend(loc='lower right')
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+:::
+
+#### 3. Policy memo: does one-time technology transfer reduce poverty?
+
+Write 250–400 words evaluating a one-time technology transfer policy intended to reduce poverty. Your memo must separate what the Solow model predicts (levels, transition speed, steady state) from what the Solow model does not address (distribution, institutions, political economy, implementation constraints). Use your simulation results as quantitative evidence. Evaluate the real-world usefulness of a policy **solely** based on the Solow model.
+
+::: {.callout-note title="Answer" icon="false"}
+
+Executive Summary:
+
+One-time technology transfers produce both immediate and delayed benefits to consumption per worker, suggesting reduced poverty on average, though the model cannot guarantee gains reach the poorest households.
+
+Background:
+
+Although the theoretical effects of tech transfers have been long documented, they were not broadly used until the 1980s, when Congress enacted legislation allowing federal agencies to share technological advancements with the private sector. The WWII mindset of allowing technology to "trickle down" was replaced by proactive stimulation of industry using federal and federally funded private research, where IP rights had previously remained with the government rather than the researching institutions. This shift led to greater cooperation between federal and private researchers and broader innovation.
+
+Policy: One-Time Transfer:
+
+This policy has overwhelmingly positive implications but faces implementation barriers. The Solow Model predicts how changes to capital affect output and generate investment, creating a virtuous cycle towards steady state. Tech transfer affects TFP, a critical multiplier variable. In our simulation, a 50% TFP increase resulted in an immediate 50% consumption increase; over the next 50-100 periods, consumption rose another 33.7%, totaling 83.7% in the long run. These changes were also mirrored across output per worker as well as investment per worker. As such, the overall poverty levels in the country would be expected to decrease as the economy advances.
+
+Additional Considerations:
+
+1. Distributional effects: While these findings demonstrate an increase in consumption per worker, this average can be misleading. This average captures how spending will change across the aggregate rather than changes to each individual worker. Because these returns come about as a result of changes to capital and capital investment, the returns to these investments will likely be used disproportionately by capital owners. If the increase to output does not touch all strata of the economy, the changes to consumption will also not affect all. The Solow model does not address this distribution. This makes consideration of technology transfer as a way to reduce poverty a more complicated issue, as there are arguments about whether such intervention serves the general population (Edwards & Bourne, 2023) vs merely capital owners (Liu & Spiegel, 2021).
+
+2. Institutions and Legislation: TFP aggregates technology, institutions, process knowledge, and law. A 50% technology increase may not translate to a 50% TFP change if institutions or laws act as barriers. Conversely, effective legislation and institutions can produce similarly positive results without the need to have tech transfer to begin with. This complexity limits the model's direct policy applicability.
+
+References:
+
+Edwards, C., & Bourne, R. (2023). Exploring wealth inequality. *Research Briefs in Economic Policy*, No. 352. Cato Institute.
+
+Liu, Z., & Spiegel, M. (2021). Capital flow surges and rising income inequality. *FRBSF Economic Letter*, 2021-09. Federal Reserve Bank of San Francisco.
+:::
+
+## Part D — Quantitative Experiment 3: Foreign Aid
+
+Scenario: A country receives an aid package that doubles its capital stock at **time $t=5$**. There is no parameter change (same $s$, $\delta$, $A$). You will analyze two initial conditions. 
+
+#### 1. Case 1: the economy starts in steady state
+
+Simulate a one-time doubling of capital at $t=5$ starting from steady state. Provide time series for $k_t$, $y_t$, $i_t$, and $c_t$ and explain what happens to consumption immediately and in the long run. Report the initial percent change in consumption at $t=5$, the long-run percent change in steady-state consumption. Use the “converge + 10” rule applied to the relevant steady state.
+
+::: {.callout-note title="Answer" icon="false"}
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# --- D1: Aid doubles k at t=5, starting from steady state ---
+# Baseline k_star, y_star, c_star from A1; no parameter changes
+t_shock = 5
+
+# Pre-shock: at steady state for t = 0..4
+t_list_d1 = list(range(t_shock))
+k_list_d1 = [k_star] * t_shock
+
+# At t=5 pre-production: capital doubles
+k_t = 2 * k_star
+t   = t_shock
+t_conv_d1 = None
+
+while True:
+    y_now  = A * k_t**alpha
+    k_next = k_t + s * y_now - delta * k_t
+
+    t_list_d1.append(t)
+    k_list_d1.append(k_t)
+
+    # Converging back to the SAME steady state
+    if t_conv_d1 is None and abs(k_t - k_star) / k_star < epsilon:
+        t_conv_d1 = t
+
+    if t_conv_d1 is not None and t >= t_conv_d1 + 10:
+        break
+
+    k_t = k_next
+    t  += 1
+
+df_d1 = pd.DataFrame({'t': t_list_d1, 'k_t': k_list_d1})
+df_d1['y_t'] = A * df_d1['k_t']**alpha
+df_d1['i_t'] = s * df_d1['y_t']
+df_d1['c_t'] = (1 - s) * df_d1['y_t']
+
+# Consumption at impact vs old steady state
+c_at_5 = df_d1.loc[df_d1['t'] == t_shock, 'c_t'].values[0]
+pct_c_impact_d1 = (c_at_5 - c_star) / c_star * 100
+pct_c_lr_d1 = 0.0   # returns to same steady state
+
+print(f"Steady state:  k* = {k_star:.4f},  y* = {y_star:.4f},  c* = {c_star:.4f}")
+print(f"Capital at t=5 (doubled): {2 * k_star:.4f}")
+print(f"Consumption at t=5:       {c_at_5:.4f}")
+print(f"% change in c at t=5:     {pct_c_impact_d1:+.2f}%")
+print(f"Long-run % change in c*:  {pct_c_lr_d1:+.2f}% (returns to original)")
+print(f"\nConvergence period: t_conv = {t_conv_d1}")
+print(f"Simulation end: t = {t_list_d1[-1]}")
+```
+
+::: {.panel-tabset}
+
+### Capital $k_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Aid at $t={t_shock}$')
+ax.plot(df_d1['t'], df_d1['k_t'], linewidth=2)
+ax.axhline(k_star, color='steelblue', linestyle='--', linewidth=1.5, label=f'$k^* = {k_star:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$k_t$')
+ax.set_title('Capital per Worker — Aid from Steady State')
+ax.legend(loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+### Output $y_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Aid at $t={t_shock}$')
+ax.plot(df_d1['t'], df_d1['y_t'], linewidth=2, color='green')
+ax.axhline(y_star, color='steelblue', linestyle='--', linewidth=1.5, label=f'$y^* = {y_star:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$y_t$')
+ax.set_title('Output per Worker — Aid from Steady State')
+ax.legend(loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+### Investment $i_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Aid at $t={t_shock}$')
+ax.plot(df_d1['t'], df_d1['i_t'], linewidth=2, color='orange')
+ax.axhline(s * y_star, color='steelblue', linestyle='--', linewidth=1.5, label=f'$i^* = {s * y_star:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$i_t$')
+ax.set_title('Investment per Worker — Aid from Steady State')
+ax.legend(loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+### Consumption $c_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Aid at $t={t_shock}$')
+ax.plot(df_d1['t'], df_d1['c_t'], linewidth=2, color='purple')
+ax.axhline(c_star, color='steelblue', linestyle='--', linewidth=1.5, label=f'$c^* = {c_star:.2f}$')
+
+# Annotate the impact jump
+ax.annotate(f'{pct_c_impact_d1:+.1f}% at impact',
+            xy=(t_shock, c_at_5), xytext=(t_shock + 4, c_at_5 + 0.1),
+            fontsize=10, color='red', fontweight='bold',
+            arrowprops=dict(arrowstyle='->', color='red'))
+
+# Annotate long-run change (0%)
+ax.annotate(f'{pct_c_lr_d1:+.1f}% long run',
+            xy=(df_d1['t'].iloc[-1] - 5, c_star), xytext=(df_d1['t'].iloc[-1] - 5, c_star + 0.15),
+            fontsize=10, color='steelblue', fontweight='bold',
+            arrowprops=dict(arrowstyle='->', color='steelblue'))
+
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$c_t$')
+ax.set_title('Consumption per Worker — Aid from Steady State')
+ax.legend(loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+:::
+
+#### 2. Case 2: the economy starts below steady state
+
+Now assume the economy starts below steady state with $k_0 = \frac{1}{2}k^*$. Simulate the economy and apply the same one-time capital doubling at $t=5$. Provide a time series for $k_t$, $y_t$, $i_t$, and $c_t$, clearly marking $t=5$, the initial percent change in consumption at $t=5$. Use the “converge + 10” rule applied to the relevant steady state.
+
+::: {.callout-note title="Answer" icon="false"}
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# --- D2: Aid doubles k at t=5, starting below steady state ---
+t_shock = 5
+k0_d2 = 0.5 * k_star   # = 4
+
+# Pre-shock: simulate from k0 = 4 for t = 0..4
+t_list_d2 = [0]
+k_list_d2 = [k0_d2]
+k_t = k0_d2
+
+for t_pre in range(1, t_shock):
+    k_t = k_t + s * A * k_t**alpha - delta * k_t
+    t_list_d2.append(t_pre)
+    k_list_d2.append(k_t)
+
+# Record c just before the shock (t=4 consumption)
+c_before_shock = (1 - s) * A * k_t**alpha
+
+# At t=5 pre-production: capital doubles
+k_t = 2 * k_t
+t   = t_shock
+t_conv_d2 = None
+
+while True:
+    y_now  = A * k_t**alpha
+    k_next = k_t + s * y_now - delta * k_t
+
+    t_list_d2.append(t)
+    k_list_d2.append(k_t)
+
+    if t_conv_d2 is None and abs(k_t - k_star) / k_star < epsilon:
+        t_conv_d2 = t
+
+    if t_conv_d2 is not None and t >= t_conv_d2 + 10:
+        break
+
+    k_t = k_next
+    t  += 1
+
+df_d2 = pd.DataFrame({'t': t_list_d2, 'k_t': k_list_d2})
+df_d2['y_t'] = A * df_d2['k_t']**alpha
+df_d2['i_t'] = s * df_d2['y_t']
+df_d2['c_t'] = (1 - s) * df_d2['y_t']
+
+c_at_5_d2 = df_d2.loc[df_d2['t'] == t_shock, 'c_t'].values[0]
+pct_c_impact_d2 = (c_at_5_d2 - c_before_shock) / c_before_shock * 100
+pct_c_lr_d2 = 0.0   # returns to same steady state
+
+print(f"Steady state:  k* = {k_star:.4f},  y* = {y_star:.4f},  c* = {c_star:.4f}")
+print(f"Capital at t=5 (doubled): {df_d2.loc[df_d2['t']==t_shock, 'k_t'].values[0]:.4f}")
+print(f"Consumption at t=5:       {c_at_5_d2:.4f}")
+print(f"% change in c at t=5:     {pct_c_impact_d2:+.2f}%")
+print(f"Long-run % change in c*:  {pct_c_lr_d2:+.2f}% (returns to original)")
+print(f"\nConvergence period: t_conv = {t_conv_d2}")
+print(f"Simulation end: t = {t_list_d2[-1]}")
+```
+
+::: {.panel-tabset}
+
+### Capital $k_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Aid at $t={t_shock}$')
+ax.plot(df_d2['t'], df_d2['k_t'], linewidth=2)
+ax.axhline(k_star, color='steelblue', linestyle='--', linewidth=1.5, label=f'$k^* = {k_star:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$k_t$')
+ax.set_title('Capital per Worker — Aid from Below Steady State')
+ax.legend(loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+### Output $y_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Aid at $t={t_shock}$')
+ax.plot(df_d2['t'], df_d2['y_t'], linewidth=2, color='green')
+ax.axhline(y_star, color='steelblue', linestyle='--', linewidth=1.5, label=f'$y^* = {y_star:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$y_t$')
+ax.set_title('Output per Worker — Aid from Below Steady State')
+ax.legend(loc='lower right')
+plt.tight_layout()
+plt.show()
+```
+
+### Investment $i_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Aid at $t={t_shock}$')
+ax.plot(df_d2['t'], df_d2['i_t'], linewidth=2, color='orange')
+ax.axhline(s * y_star, color='steelblue', linestyle='--', linewidth=1.5, label=f'$i^* = {s * y_star:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$i_t$')
+ax.set_title('Investment per Worker — Aid from Below Steady State')
+ax.legend(loc='lower right')
+plt.tight_layout()
+plt.show()
+```
+
+### Consumption $c_t$
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Aid at $t={t_shock}$')
+ax.plot(df_d2['t'], df_d2['c_t'], linewidth=2, color='purple')
+ax.axhline(c_star, color='steelblue', linestyle='--', linewidth=1.5, label=f'$c^* = {c_star:.2f}$')
+
+# Annotate the impact jump
+ax.annotate(f'{pct_c_impact_d2:+.1f}% at impact',
+            xy=(t_shock, c_at_5_d2), xytext=(t_shock + 4, c_at_5_d2 + 0.08),
+            fontsize=10, color='red', fontweight='bold',
+            arrowprops=dict(arrowstyle='->', color='red'))
+
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$c_t$')
+ax.set_title('Consumption per Worker — Aid from Below Steady State')
+ax.legend(loc='lower right')
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+:::
+
+#### 3. Initial Condition Comparison
+
+We use consumption as a proxy for welfare. Compare the paths of consumption under both initial conditions and provide an analysis of the economic welfare of the simulated countries.
+
+::: {.callout-note title="Answer" icon="false"}
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Align both series to the same time range for comparison
+t_max = max(df_d1['t'].max(), df_d2['t'].max())
+
+fig, ax = plt.subplots(figsize=(9, 5))
+ax.axvspan(0, t_shock, color='blue', alpha=0.06, label='Pre-change')
+ax.axvline(t_shock, color='red', linewidth=1.5, linestyle='--', label=f'Aid at $t={t_shock}$')
+ax.plot(df_d1['t'], df_d1['c_t'], linewidth=2, color='purple',
+        label='Case 1: starts at $k^*$')
+ax.plot(df_d2['t'], df_d2['c_t'], linewidth=2, color='teal', linestyle='-.',
+        label='Case 2: starts at $\\frac{1}{2}k^*$')
+ax.axhline(c_star, color='steelblue', linestyle='--', linewidth=1.5, label=f'$c^* = {c_star:.2f}$')
+ax.set_xlabel('Period $t$')
+ax.set_ylabel('$c_t$')
+ax.set_title('Consumption Paths Compared — Aid at $t=5$')
+ax.legend(loc='upper right')
+plt.tight_layout()
+plt.show()
+```
+
+Both cases experience the same +25.99% jump in consumption at $t=5$, because doubling capital raises output by $2^{1/3} \approx 1.26$ regardless of the starting level. However, the welfare paths diverge sharply. Case 1 starts from $c^* = 1.60$ and spikes to 2.02, but this is entirely temporary — capital is now far above $k^*$, so depreciation exceeds investment and the economy spends 273 periods decaying back to the original steady state. Case 2 starts from a lower consumption level (below $c^*$) and the doubling pushes capital to 8.91, just slightly above $k^* = 8$. This means Case 2 converges in only 212 periods and enjoys consumption above $c^*$ only briefly before settling at the same long-run level. In both cases the long-run change in $c^*$ is zero — aid does not alter the steady state. The key welfare difference is that Case 1 enjoys a much larger absolute level of consumption during the temporary boom (starting from 2.02 vs 1.66), but Case 2 benefits by being accelerated to the steady state it was already approaching, effectively compressing decades of transition into a shorter window.
+
+:::
+
+
+#### 3. Synthesis: what does Solow teach about foreign aid?
+
+Write 300–450 words summarizing what Part C and D teach about the consequences of foreign aid. Your synthesis must answer all of the following: whether aid has a long-run effect on steady-state welfare in this model, what the short-run benefit is, what the model suggests about “capital transfers” versus “technology/institution transfers,” and one major limitation of applying this conclusion to the real world.
+
+::: {.callout-note title="Answer" icon="false"}
+
+Consequences of Foreign Aid
+
+Parts C and D show that the consequences of foreign aid depend greatly on the mechanism by which they occur. Part C showed how aid in the form of technology not only affects short-term consumption but also changes steady-state values, resulting in transitional growth as well — a 50% TFP increase produced an immediate 50% jump in consumption and an additional 33.7% over transition, totaling +83.7% in the long run. This is contrasted with capital transfers. In part D, we made a 100% increase to capital (double the change made to TFP) which only produced a +25.99% consumption jump at impact and then returned to the original steady state with 0% long-run change. Nevertheless, capital transfer in an economy significantly below steady state can enable it to arrive at steady state much quicker (212 vs 273 periods to converge). Therefore, capital transfers have mixed results depending on desired policy outcomes (long-run economic growth vs. arriving at steady state).
+
+Aid on Steady State Welfare
+
+Changes to steady state are all due to a change in steady-state capital, which can be expressed as $k^*=(\frac{sA}{\delta})^\frac{1}{1-\alpha}$. Therefore, only changes to savings, total factor productivity, or depreciation can shift the steady state. Foreign aid in the form of capital transfers does not change any of these parameters, and as such does not change long-run output or consumption. In this regard, capital transfers have no lasting effect on steady-state welfare. Technology transfers, by contrast, permanently raise $A$ and therefore shift $k^*$, $y^*$, and $c^*$ upward.
+
+Short-Run Benefit
+
+If policy goals are to maximize consumption in the short run, capital transfer can be a meaningful way to stimulate the short run — in our simulation, doubling capital raised consumption by +25.99% at impact — but this gain decays over time back to the steady state. Technology transfer also produces an immediate jump (+50% in consumption), but because capital is now below rather than above the new steady state, the transitional dynamics allow consumption to increase year by year until convergence is achieved. As such, while both produce immediate consumption gains, changes from capital aid are lost in the midterm, whereas changes from tech transfer compound in the midterm.
+
+Limitation
+
+Although tech transfer seems a vastly superior method, it is much harder to implement in the real world. Changes to TFP are the result of the culmination of institutions, law, technology, etc. As such, there can be internal effects due to changes to technology due to law or institutional implementation. Furthermore, technology is often beholden to supply chains as well as process knowledge of suppliers of labor within the relevant industries. Therefore, it can take time to train human capital capable of using the new technology, or it can be infeasible for the supply chain to allow certain technologies in foreign nations at scale. This would require not only technology transfer, but also infrastructure investment.
+
+:::
+
+## Rubric
+
+| Specification (with learning outcomes) | Meets Expectations | Not Yet |
+|---|---|---|
+| A.1-1 Solow equations stated in intensive units with correct time indexing (LO 5.1.1.4, 5.1.1.5, 5.1.1.6) | States $y_t = Ak_t^\alpha$, resource constraint, and $k_{t+1}$ law of motion clearly; distinguishes time $t$ objects from time $t+1$ correctly. | Missing equations, incorrect indexing, or not in intensive units. |
+| A.1-2 Stock/flow interpretation is coherent (LO 5.1.1.1, 5.1.1.2, 5.1.1.7) | Correctly identifies which objects are stocks vs flows and explains the economic intuition behind the law of motion (saving adds, depreciation subtracts). | Stock/flow confusion or intuition is vague/incorrect. |
+| A.1-3 Steady state derived and evaluated numerically using baseline parameters (LO 5.1.2.9) | Provides a correct analytic expression for $k^*$ and computes the numerical value using $\alpha=1/3, A=1, s=0.2, \delta=0.05$. | $k^*$ expression or numerical value is missing or incorrect. |
+| A.2-1 Initial condition uses $k_0=\frac{1}{2}k^*$ (LO 5.1.2.11) | Simulation clearly starts from half of steady state and documents the value used. | Wrong initial condition or not documented. |
+| A.2-2 Convergence is implemented via while-loop with a stated tolerance (LO 5.1.2.11) | Uses a while-loop stopping rule based on a clearly stated relative tolerance (or equivalent) and briefly justifies the choice. | No while-loop convergence, tolerance missing, or rule is unclear. |
+| A.2-3 Post-convergence horizon is $t^{conv}+10$ and reported (LO 5.1.2.11) | Reports $t^{conv}$ and shows 10 additional periods after convergence. | Stops too early, does not show post-convergence periods, or $t^{conv}$ not reported. |
+| A.2-4 Dataset preview is shown correctly (LO 5.1.2.7) | Displays first 5 rows of the final tidy simulation dataset with clear column labels. | Preview missing or dataset not interpretable. |
+| A.2-5 Baseline time series are complete and readable in tabset (LO 5.1.2.7) | Provides separate labeled plots for $k_t$, $y_t$, and $c_t$ across the full horizon, organized in a Quarto tabset. | Missing one or more plots, not labeled, or not organized as requested. |
+| A.3-1 Phase diagram is coded and correctly labeled (LO 5.1.2.3, 5.1.2.6) | Diagram is generated from code and labels $sf(k)$, $\delta k$, and $k^*$. | Diagram is a screenshot or missing key curves/labels. |
+| A.3-2 Direction-of-motion annotations are correct (LO 5.1.2.7) | Annotations correctly explain why $k$ rises below $k^*$ and falls above $k^*$ using net investment. | Annotations are missing or economically incorrect. |
+| B.1-1 Savings-rate shock analysis predicts correct comparative statics (LO 5.1.3.1) | Explains how lowering $s$ shifts $sf(k)$ down, lowers $k^*$, and predicts paths of $k,y,i,c$ over time, including impact at $t=5$. | Incorrect comparative statics or unclear link to the phase diagram. |
+| B.2-1 Savings-rate simulation uses correct timing and marks $t=5$ (LO 5.1.3.1) | Simulation applies the permanent change at $t=5$ pre-production and all relevant figures clearly mark $t=5$. | Wrong timing or $t=5$ not clearly identified. |
+| B.2-2 Required time series are provided and pre/post is visible (LO 5.1.3.1) | Provides time series for $k,y,i,c$ across full horizon with clear pre ($0$–$4$) vs post ($\ge 5$) interpretation. | Missing series or pre/post distinction is not visible. |
+| B.2-3 Steady states are identified on charts and percent change in $c^*$ reported (LO 5.1.3.1) | Marks $(k^*_0,y^*_0,c^*_0)$ and $(k^*_1,y^*_1,c^*_1)$ and reports percent change in steady-state consumption accurately. | Missing steady-state markers or percent change is missing/incorrect. |
+| B.3-1 Golden Rule savings rate is stated correctly (LO 5.1.2.9) | Correctly identifies the Golden Rule condition (e.g., $s^{GR}=\alpha$ in this model) and states the implied value with baseline parameters. | Golden Rule stated incorrectly or not connected to the model. |
+| B.3-2 Policy discussion addresses transition and intergenerational tradeoffs (LO 5.2.2, 5.2.3) | 150–250 words; explains why transition paths matter and discusses welfare tradeoffs across generations in a model-consistent way. | Too short/long or discussion is generic and not model-based. |
+| C.1-1 TFP shock analysis predicts correct comparative statics (LO 5.1.3.5) | Explains how higher $A$ shifts $f(k)$ and $sf(k)$ up, raises $k^*$, and predicts paths of $k,y,i,c$ including impact at $t=5$. | Incorrect comparative statics or unclear reasoning. |
+| C.2-1 TFP simulation uses correct timing and marks $t=5$ (LO 5.1.3.5) | Permanent $A$ increase applied at $t=5$ pre-production; all figures mark $t=5$. | Wrong timing or $t=5$ not marked. |
+| C.2-2 Required time series and steady-state percent changes are reported (LO 5.1.3.5) | Provides time series for $k,y,i,c$; reports percent changes in steady-state output and consumption correctly. | Missing time series or missing/incorrect percent changes. |
+| C.2-3 Transition-speed metric is defined, justified, and computed (LO 5.1.2.11) | Defines a sensible speed metric (e.g., time to close 90% of gap), justifies it briefly, and reports the value from the simulation. | Metric missing, not justified, or not computed correctly. |
+| C.3-1 Policy memo uses simulation evidence and separates model scope vs limits (LO 5.2.2, 5.2.3) | 250–400 words; uses quantitative results; clearly distinguishes Solow predictions from omitted real-world mechanisms and evaluates usefulness “solely” within Solow. | Memo is generic, unquantified, or overclaims beyond the model. |
+| D.1-1 Aid from steady state: timing, series, and consumption effects (LO 5.1.3.3) | Doubles $k$ at $t=5$ pre-production; provides $k,y,i,c$ series; reports initial % change in $c_5$ and long-run % change in $c^*$ correctly. | Wrong timing, missing series, or incorrect consumption comparisons. |
+| D.2-1 Aid below steady state: timing, series, and consumption jump (LO 5.1.3.3, 5.1.2.11) | Starts at $k_0=\frac{1}{2}k^*$; doubles $k$ at $t=5$; provides $k,y,i,c$ series; reports initial % change in consumption at $t=5$. | Wrong initial condition, missing series, or missing/incorrect consumption jump. |
+| D.3-1 Initial-condition comparison focuses on welfare via consumption paths (LO 5.1.2.7, 5.2.2, 5.2.3) | Produces a direct comparison of consumption paths (single figure or aligned figures) and provides an interpretation of welfare differences across the two cases. | Comparison is missing, purely descriptive, or not tied to welfare logic. |
+| D.4-1 Synthesis answers required questions and links to Parts C and D (LO 5.2.2, 5.2.3) | 300–450 words; addresses long-run steady-state effects, short-run benefits, capital vs technology/institutions, and one major limitation; explicitly draws on evidence from Parts C and D. | Missing required elements or does not connect to earlier results. |
+| X.1-1 Presentation and auditability (supports all outcomes) | Figures are labeled, $t=5$ is visible, steady states/metrics are clearly reported, and a grader can verify decisions without guessing. | Outputs are unclear, unlabeled, or key choices/metrics are not identifiable. |

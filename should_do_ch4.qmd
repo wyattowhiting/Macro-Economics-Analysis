@@ -1,0 +1,463 @@
+---
+title: "Should Do Ch 4 — Growth Accounting"
+author: "Wyatt Whiting"
+date: today
+format: 
+  html:
+    embed-resources: true
+    toc: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{python}
+#| echo: false
+#| warning: false
+#| message: false
+#| results: hide
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+#Imput your libraries and othe packages here. This will now display on the HTML rendering.
+
+```
+
+## Objective
+
+This assignment strengthens your ability to use a macroeconomic model as a measurement tool for international income differences. You will implement development accounting using the Cobb–Douglas production function, compute implied total factor productivity (TFP) needed to reconcile the model with observed GDP per capita, and evaluate whether an upgraded Hall–Jones accounting framework improves explanatory power. The emphasis is on translating model structure into transparent, reproducible empirical work and interpreting model fit using appropriate statistics on the log scale, where cross-country income gaps are naturally compared.
+
+## Learning Outcomes Assessed
+
+<details>
+
+<summary><strong>4.1 Explain differences in per capita GDP using the Cobb Douglas production function</strong></summary>
+
+  <details style="margin-left: 20px;">
+    <summary>4.1.5 Use the solution of the Cobb-Douglas production model to conduct development accounting</summary>
+
+  - 4.1.5.4 Define development accounting
+  - 4.1.5.5 Compare the model's predicted GDP per capita to actual GDP per capita in a table (replicate a textbook table)
+  - 4.1.5.6 Compare the model's predicted GDP per capita to actual GDP per capita graphically (replicate a textbook figure)
+  - 4.1.5.7 Define Total Factor Productivity
+  - 4.1.5.8 Calculate total factor productivity using a Cobb–Douglas production function with standard assumptions
+  - 4.1.5.9 Explain the economic intuition behind TFP
+  - 4.1.5.10 Explain the contributions of capital and TFP in explaining differences in income per capita across countries
+
+  </details>
+
+  <details style="margin-left: 20px;">
+    <summary>4.1.6 Breakdown hypotheses that attempt to explain variation in TFP across countries</summary>
+
+  - 4.1.6.1 Define human capital
+  - 4.1.6.2 Motivate how education can help explain some of the variation in TFP
+  - 4.1.6.5 Define institutions
+  - 4.1.6.6 Motivate how differences in institutions can explain some of the variation in TFP
+  - 4.1.6.7 Define misallocation
+  - 4.1.6.8 Motivate how differences in the misallocation of resources can explain some of the variation in TFP
+
+  </details>
+
+</details>
+
+<details>
+
+<summary><strong>4.2 Evaluate the ability of production models to fit real world data</strong></summary>
+
+  <details style="margin-left: 20px;">
+    <summary>4.2.1 Use the solution of the Hall-Jones production model to conduct development accounting</summary>
+
+  - 4.2.1.1 Read the excerpt for the Hall–Jones paper  
+  - 4.2.1.2 Work through the math in the Hall–Jones paper  
+
+  </details>
+
+  <details style="margin-left: 20px;">
+    <summary>4.2.2 Contrast the Hall–Jones and Cobb–Douglas production model fit</summary>
+
+  - 4.2.2.3 Calculate total factor productivity using a Hall–Jones production function with standard assumptions  
+  - 4.2.2.5 Explain the contributions of capital, human capital, and TFP in explaining differences in income per capita across countries  
+  - 4.2.2.6 Calculate a model fit statistic  
+  - 4.2.2.7 Explain the limitations of the Cobb–Douglas and Hall–Jones production models  
+
+  </details>
+
+</details>
+
+
+## Sources
+
+You must use all of the following sources in this assignment:
+
+1. Textbook: Chapter 4 (Development Accounting and the Cobb–Douglas framework)
+2. Reading: Hall, Jones — *Why Do Some Countries Produce So Much More Output Per Worker Than Others?* <a href="HJ_excerpt.pdf" download="HJ_excerpt.pdf"> Download</a>
+3. Reading support: Hall, Jones — Algebra Help (supplemental walkthrough) <a href="HJ_algebra.pdf" download="HJ_algebra.pdf"> Download</a>
+4. Data: Growth Accounting Normalized to US GDP per Capita. <a href="growth_accounting_data.csv" download="growth_accounting_data.csv"> Download</a>
+
+
+Additional sources may be used for context, but they do not replace these required sources.
+
+
+## Part A — Baseline Development Accounting (Cobb–Douglas)
+
+In this part you will use the Cobb–Douglas development accounting framework from the textbook to compare model-predicted income levels to observed income levels across countries, and then compute the implied TFP needed to reconcile the model with the data.
+
+#### 1. Define the baseline accounting model
+
+Using the notation from the lecture, state the baseline model you are using to predict income (or output) per person/worker as a function of capital per person/worker. Use the general notation for the capital share $\alpha$. Your equation must make clear what is treated as observed input and what is predicted. State the model including TFP. *Hint: Textbook page 85*
+
+::: {.callout-note title="Answer" icon="false"}
+The baseline Cobb-Douglas development accounting model is:
+
+$y = \bar{A} \cdot \bar{k}^{\alpha}$
+
+where:
+
+$y$ = observed output per worker (Y/L)
+$k$ = observed capital per worker (K/L)
+$\alpha$ = capital share (typically 1/3)
+$A$ = Total Factor Productivity (TFP)
+The model prediction with $A = 1$ is: $\hat{y}^{CD} = k^{\alpha}$
+
+This assumes TFP contributes nothing, so any gap between observed $y$ and predicted $\hat{y}$ must be explained by implied TFP: $\hat{A} = y / \hat{y}$
+:::
+
+#### 2. Replicate the baseline development accounting table (CD model)
+
+Using the provided data, construct a table for the full country sample with the following columns:
+
+- Country name
+- Country code
+- Observed income per capita $y$
+- Model prediction $\hat{y}^{CD}$ with $A=1$: 
+- Implied TFP that makes the model fit exactly: $\hat{A}^{CD} = y / \hat{y}^{CD}$
+
+Sort your table by income per capita and display the top 5 rows.
+
+::: {.callout-note title="Answer" icon="false"}
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Load and clean data (used by all subsequent blocks)
+df = pd.read_csv(r"C:\Users\major\OneDrive\Desktop\Macro Economics\Visual Data\growth_accounting_data.csv")
+
+df = df.rename(columns={
+    "Unnamed: 0": "Country",
+    "Unnamed: 1": "Country Code",
+    "Unnamed: 2": "Observed GDP/Capita",
+    "Textbook Production Model": "k",
+    "Hall-Jones Production Model": "(K/Y)^2",
+    "Unnamed: 5": "H/L"
+})
+
+df = df.iloc[1:].copy()
+
+df["Observed GDP/Capita"] = df["Observed GDP/Capita"].astype(float)
+df["k"] = df["k"].astype(float)
+df["(K/Y)^2"] = df["(K/Y)^2"].astype(float)
+df["H/L"] = df["H/L"].astype(float)
+
+alpha = 1 / 3
+
+# CD model
+df["y_hat_CD"] = df["k"] ** alpha
+df["A_CD"] = df["Observed GDP/Capita"] / df["y_hat_CD"]
+
+top_5 = (
+    df[["Country", "Country Code", "Observed GDP/Capita", "y_hat_CD", "A_CD"]]
+    .sort_values(by="Observed GDP/Capita", ascending=False)
+    .head(5)
+)
+
+print(top_5)
+
+```
+:::
+
+## Part B — Including Human Capital in Development Accounting (Hall–Jones)
+
+In this part you will implement the Hall–Jones development accounting framework using the provided Hall–Jones data file. You will compute the model-implied income level and the implied TFP needed to reconcile the model with observed income, then compare the implied TFP from the Hall–Jones model to the implied TFP from the baseline Cobb–Douglas model.
+
+#### 1. Define the Hall–Jones Production  Model 
+
+Using the notation from the Hall–Jones excerpt (and lecture's notation and discussion), write the Hall–Jones model equation for output per worker . Your equation must clearly indicate how human capital enters the production function (for example, through an $h$ term multiplying labor input). Define all the new variables as noted in the paper.
+
+::: {.callout-note title="Answer" icon="false"}
+The Hall–Jones production function in aggregate form is:
+
+$$Y = K^{\alpha}(A H)^{1-\alpha}$$
+
+Dividing by $L$ and solving for output per worker yields:
+
+$$y = \left(\frac{K}{Y}\right)^{\frac{\alpha}{1-\alpha}} \cdot A \cdot h$$
+
+where:
+
+- $Y$ = aggregate output (GDP)
+- $L$ = labor (number of workers)
+- $y = Y/L$ = output per worker
+- $K$ = physical capital stock
+- $K/Y$ = capital-output ratio (observed from data)
+- $\alpha$ = capital share of income (typically $1/3$), so $\frac{\alpha}{1-\alpha} = \frac{1}{2}$
+- $A$ = Total Factor Productivity (TFP), capturing technology, institutions, and efficiency not explained by measured inputs
+- $H = h \cdot L$ = total human capital in the economy
+- $h$ = human capital per worker, constructed from years of schooling and estimated returns to education
+
+The key difference from the baseline Cobb–Douglas model is that Hall–Jones (1) rewrites capital's contribution in terms of the capital-output ratio $K/Y$ rather than capital per worker $k$, and (2) introduces human capital $h$ as an explicit factor of production. The model prediction with $A = 1$ is:
+
+$$\hat{y}^{HJ} = \left(\frac{K}{Y}\right)^{\frac{\alpha}{1-\alpha}} \cdot h$$
+
+Any remaining gap between observed $y$ and predicted $\hat{y}^{HJ}$ is attributed to implied TFP: $A^{HJ} = y / \hat{y}^{HJ}$
+:::
+
+#### 2. Replicate the development accounting table for the HJ model
+
+Using the provided data, construct a table for the country sample with the following columns:
+
+- Country name
+- Country code
+- Observed income per capita $y$
+- Human capital per capita
+- Model prediction $\hat{y}^{HJ}$ with $A=1$
+- Implied TFP that makes the model fit exactly: $A^{HJ} = y / \hat{y}^{HJ}$
+
+Sort your table by income per capita and display the top 5 rows.
+
+::: {.callout-note title="Answer" icon="false"}
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# HJ model (uses df from Part A)
+df["y_hat_HJ"] = df["(K/Y)^2"] * df["H/L"]
+df["A_HJ"] = df["Observed GDP/Capita"] / df["y_hat_HJ"]
+
+top_5 = (
+    df[["Country", "Country Code", "Observed GDP/Capita", "H/L", "y_hat_HJ", "A_HJ"]]
+    .sort_values(by="Observed GDP/Capita", ascending=False)
+    .head(5)
+)
+
+print(top_5)
+
+```
+:::
+
+#### 3. Cross-model implied TFP comparison (scatter + correlation)
+
+Create a scatter plot comparing implied TFP from the two models using all the country sample, use:
+
+- x-axis: $A^{CD}$
+- y-axis: $A^{HJ}$
+
+Skill-based requirement. Please pick the option that matches with the latest course you have completed:
+
+- **ECON278**: Report the correlation coefficient between $A^{CD}$ and $A^{HJ}$ on the entire sample, and write 2–4 sentences interpreting what a high vs low correlation would mean in this context.  
+
+::: {.callout-note title="Answer" icon="false"}
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+
+plt.figure(figsize=(8, 6))
+plt.scatter(df["A_CD"], df["A_HJ"], alpha=0.7)
+plt.xlabel("Implied TFP (Cobb-Douglas): $A^{CD}$")
+plt.ylabel("Implied TFP (Hall-Jones): $A^{HJ}$")
+plt.title("Comparison of Implied TFP Across Models")
+plt.axline((0, 0), slope=1, color='red', linestyle='--', label='45° line')
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Correlation coefficient (ECON278)
+correlation = df["A_CD"].corr(df["A_HJ"])
+print(f"Correlation between A_CD and A_HJ: {correlation:.4f}")
+```
+
+The correlation of 0.93 is very high, indicating both models assign similar TFP rankings to countries—countries with high implied TFP in Cobb-Douglas also have high TFP in Hall-Jones. Adding human capital doesn't change which countries appear productive or unproductive; it shifts the level of implied TFP but doesn't explain away cross-country productivity differences. Both models leave similar unexplained residuals, meaning the mystery of why some countries are more productive persists even after accounting for education differences.
+:::
+
+## Part C — Measurement and Model Fit
+
+In development accounting, cross-country income gaps span orders of magnitude, so differences are best understood as ratios, for example, “twice as rich” or “one-tenth as rich”, not as dollar-level gaps. Fit metrics computed in levels tend to be dominated by high-income countries simply because their income levels are large, which is not the comparison you want in a cross-country setting. Using logs converts multiplicative gaps into additive differences: $\log(y) - \log(\hat{y}) = \log(y/\hat{y})$, which measures the proportional (factor) error in a way that is comparable across poor and rich countries. For that reason, you will evaluate model fit using log income and report fit statistics on the same country sample for both models $\hat{y}^{CD}$ and $\hat{y}^{HJ}$ and the observed $y$.
+
+Define the log error for model $m$ as:
+
+$$
+e_i^{m} = \log(y_i) - \log(\hat{y}_i^{m})
+$$
+
+where $m \in \{CD, HJ\}$ and $i \in \{USA, LUX, CAN,...\}$.
+
+#### 1. Root Mean Squared Error (RMSE) in Logs
+
+Compute the RMSE in logs for each model:
+
+$$
+RMSE_{\log}^{m} = \sqrt{\frac{1}{N}\sum_{i=1}^N\left(e_i^{m}\right)^2}
+$$
+
+Report $RMSE_{\log}^{CD}$ and $RMSE_{\log}^{HJ}$ using the entire sample.
+
+::: {.callout-note title="Answer" icon="false"}
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Log error for each model
+df["e_CD"] = np.log(df["Observed GDP/Capita"]) - np.log(df["y_hat_CD"])
+df["e_HJ"] = np.log(df["Observed GDP/Capita"]) - np.log(df["y_hat_HJ"])
+
+# RMSE in logs
+N = len(df)
+RMSE_CD = np.sqrt((df["e_CD"] ** 2).sum() / N)
+RMSE_HJ = np.sqrt((df["e_HJ"] ** 2).sum() / N)
+EF_CD = np.exp(RMSE_CD)
+EF_HJ = np.exp(RMSE_HJ)
+
+
+print(f"Sample size (N): {N}")
+print(f"RMSE_log (CD): {RMSE_CD:.4f}")
+print(f"RMSE_log (HJ): {RMSE_HJ:.4f}")
+print(f"Error Factor (CD): {EF_CD:.4f}")
+print(f"Error Factor (HJ): {EF_HJ:.4f}")
+```
+:::
+
+#### 2. Explained share of variance in log income (required)
+
+We used correlations or a linear regression model to evaluate the relationship between the two models and what they have in common. That approach has some limitations. Another way to establish explanatory power without having to make statistical   modeling assumptions is to calculate the the explained share of variance for each model.
+
+$$
+ExplainedShare^{m} = 1 - \frac{\operatorname{Var}\left(e_i^{m}\right)}{\operatorname{Var}\left(\log(y_i)\right)}
+$$
+
+::: {.callout-note title="Answer" icon="false"}
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Variance of log observed income
+df["log_y"] = np.log(df["Observed GDP/Capita"])
+var_log_y = df["log_y"].var()
+
+# Variance of log errors
+var_e_CD = df["e_CD"].var()
+var_e_HJ = df["e_HJ"].var()
+
+# Explained share of variance
+ExplainedShare_CD = 1 - (var_e_CD / var_log_y)
+ExplainedShare_HJ = 1 - (var_e_HJ / var_log_y)
+
+print(f"Var(log(y)): {var_log_y:.4f}")
+print(f"Var(e_CD): {var_e_CD:.4f}")
+print(f"Var(e_HJ): {var_e_HJ:.4f}")
+print(f"Explained Share (CD): {ExplainedShare_CD:.4f}")
+print(f"Explained Share (HJ): {ExplainedShare_HJ:.4f}")
+```
+:::
+
+#### 3. Robustness Check: Log RMSE by income quartiles 
+
+Heterogeneity is important when evaluating model fit and explanatory power. One potential problem with the model is that it might fit the experience of some countries better than others. One key dimension of concern is income. This diagnostic checks whether each model fits poor vs rich countries differently.
+
+Using observed $\log(y_i)$, assign countries into four quartiles, below is an example of two of the quartiles for clarity:
+
+  - Q1: poorest 25% (lowest $\log(y)$)
+  - Q4: richest 25% (highest $\log(y)$)
+
+For each quartile $q$ and each model $m$, compute:
+
+$$
+RMSE_{\log,q}^{m} = \sqrt{\frac{1}{N_q}\sum_{i \in q}\left(e_i^{m}\right)^2}
+$$
+
+Create a table with four rows (Q1–Q4) reporting $RMSE_{\log,q}^{CD}$ and $RMSE_{\log,q}^{HJ}$.
+
+::: {.callout-note title="Answer" icon="false"}
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Assign quartiles based on log(y)
+df["Quartile"] = pd.qcut(df["log_y"], q=4, labels=["Q1", "Q2", "Q3", "Q4"])
+
+# Function to calculate RMSE for a group
+def rmse(errors):
+    return np.sqrt((errors ** 2).mean())
+
+# Calculate RMSE by quartile for each model
+quartile_rmse = df.groupby("Quartile").apply(
+    lambda x: pd.Series({
+        "N": len(x),
+        "RMSE_CD": rmse(x["e_CD"]),
+        "RMSE_HJ": rmse(x["e_HJ"])
+    })
+).reset_index()
+
+print(quartile_rmse.to_string(index=False))
+```
+:::
+
+
+#### 4. Interpreting model fit
+
+In this section you will interpret your fit evidence from all three metrics: overall RMSE in logs, explained share of variance, and quartile RMSE patterns. Your goal is to explain *which model fits better*, *what “better” means for each statistic*, and *what the fit evidence suggests about where the models succeed and fail*.
+
+Write 300–450 words that addresses all the parts below. You must explicitly reference your previous work.
+
+   1. Overall error magnitude (C1): Compare $RMSE_{\log}^{CD}$ and $RMSE_{\log}^{HJ}$. Translate each RMSE into an intuitive “typical multiplicative error factor” using $\exp(RMSE_{\log})$. Which model has the smaller typical factor error, and by how much?
+
+   2. Dispersion explained (C2): Compare $ExplainedShare^{CD}$ and $ExplainedShare^{HJ}$. Interpret this statistic in plain language. What does it mean if explained share rises meaningfully from one model to another? ECON 388:  How does it compare to the estimated $R^2$ in your regression? What does your estimates tell you about economists' understanding of economic growth?
+
+   3. What model is better at fitting the countries by distribution of income? (C3): Using your quartile table, identify the statistics in the list below. State the relevant RMSE values. What does this pattern suggest about which countries the additional Hall–Jones ingredients, especially human capital, help explain?
+
+       a. The quartile where Hall–Jones improves fit the most (largest drop in $RMSE_{\log,q}$)
+       b. One quartile where improvement is small or negative. 
+
+   4. Reconciling the evidence: Do the three metrics tell a consistent story, same “winner” and same interpretation, or do they point in different directions? If they differ, explain how.
+
+   5. Limits of fit interpretation: State one limitation of using fit metrics in this setting. Your limitation should be about measurement or model structure. Some relevant dimensions are: PPP comparability, quality vs quantity of schooling, capital stock measurement, complete-case sample selection, or what the residual TFP is still capturing. Explain how these limitations could mechanically affect one of your fit metrics.
+
+::: {.callout-note title="Answer" icon="false"}
+By exponentiating the RMSE of the Cobb-Douglas and Hall-Jones models, we get typical multiplicative errors of 3.23 and 3.16, respectively. Both are relatively large multiplicative errors, which means they typically have a lot of error. However, Hall-Jones has a slightly lower multiplicative error, so it is a marginally better model in terms of predicting accurate values—about a 2% improvement. Both create large errors, with predictions roughly off by a factor of more than 3.
+
+With respect to explained share, Cobb-Douglas has 68.16% and Hall-Jones has 54.44%. So Cobb-Douglas explains 13.7% more of the variance using its model assumptions as opposed to Hall-Jones. Despite Hall-Jones adding that element of human capital, it makes it so that the endogenous variables explain less of the variance than the residual A does. Hall-Jones, despite adding a new variable, gives more power to the residual A and explains less of the variance between countries than Cobb-Douglas, which explains 68% of cross-country income variation.
+
+Across the quartiles, Hall-Jones does better in every quartile except Q1, the poorest quartile. In Q1, the RMSE difference is 0.02; Q2 is 0.05; Q3 is 0.09; Q4 is 0.06. The largest improvement occurs in Q3, where Hall-Jones is comparatively the best as opposed to Cobb-Douglas. Q1 is where it does worse than Cobb-Douglas. In poorer countries, capital and labor are a better way of understanding income as opposed to including the human capital element.
+
+This is largely due to one of the limitations: quantity versus quality of schooling. Hall-Jones cares about quantity of schooling based on number of years, but doesn't account for the difference in schooling between countries. The difference between a Nordic country's elementary education and an African country's elementary education are vastly different. Years of schooling do not have constant returns—the first couple years demonstrate relatively linear human capital development, but there's wider variation in later years. All 8th graders can have the same set of skills, but not every college graduate has the same level of human capital. This introduces a variable that isn't linear and is hard to control for. Schooling is one reason Hall-Jones, despite introducing a variable that might explain output better, introduces a lot of assumptions and variance, which is why Cobb-Douglas explains more variance.
+
+Reconciling this evidence across the three factors: for RMSE, Hall-Jones just barely wins and is slightly better overall in terms of error. However, Cobb-Douglas wins in terms of explaining variance based on model assumptions.
+
+:::
+
+## Rubric
+
+| Specification (with learning outcomes) | Meets Expectations | Not Yet |
+|---|---|---|
+| A.1-1 Baseline CD model equation is correct and complete (LO 4.1.5.4, 4.1.5.7, 4.1.5.8) | Writes the Cobb–Douglas development accounting equation using $\alpha$ and includes TFP $A$; clearly states what is observed vs predicted and what “$A=1$” means for the prediction. | Equation is missing key terms (e.g., $A$ or $\alpha$), confuses observed vs predicted objects, or does not represent the development accounting setup. |
+| A.2-1 CD table includes required columns (LO 4.1.5.5, 4.1.5.8) | Table includes: country name, code, observed $y$, $\hat{y}^{CD}$ with $A=1$, and implied $\hat{A}^{CD}=y/\hat{y}^{CD}$. | One or more required columns missing or mislabeled. |
+| A.2-2 CD prediction and implied TFP are computed correctly (LO 4.1.5.8, 4.1.5.10) | $\hat{y}^{CD}$ is computed using the stated equation and $\hat{A}^{CD}$ is consistent with the table entries; values are economically plausible (e.g., not negative or nonsensical). | Calculations contain errors (e.g., inconsistent ratios) or values are implausible due to formula mistakes. |
+| A.2-3 Sorting and display requirement met (LO 4.1.5.5) | Table is sorted by income per capita and the top 5 rows are displayed as requested. | Not sorted and/or not the top 5 rows. |
+| B.1-1 Hall–Jones model equation and variable definitions are correct (LO 4.2.1.1, 4.2.1.2, 4.2.2.3) | Writes the Hall–Jones production/accounting equation for output per worker and clearly defines all new variables (including the human capital term) in a way consistent with the excerpt/lecture notation. | Equation is incomplete/incorrect and/or variables are not defined or are inconsistent with the excerpt. |
+| B.2-1 HJ table includes required columns (LO 4.2.2.3, 4.2.2.5) | Table includes: country name, code, observed $y$, human capital per capita, $\hat{y}^{HJ}$ with $A=1$, and implied $A^{HJ}=y/\hat{y}^{HJ}$. | One or more required columns missing or mislabeled. |
+| B.2-2 HJ prediction and implied TFP are computed correctly (LO 4.2.2.3, 4.2.2.5) | $\hat{y}^{HJ}$ and $A^{HJ}$ are consistent with the stated model and each other; values are economically plausible. | Calculations contain errors or are inconsistent with the stated model. |
+| B.2-3 Sorting and display requirement met (LO 4.2.2.3) | Table is sorted by income per capita and the top 5 rows are displayed as requested. | Not sorted and/or not the top 5 rows. |
+| B.3-1 Scatter plot compares $A^{CD}$ (x) to $A^{HJ}$ (y) on full sample (LO 4.2.2.5, 4.2.2.6) | Scatter plot is present, readable, correctly mapped (x=$A^{CD}$, y=$A^{HJ}$), and uses the full available country sample. | Plot missing, axes reversed/unclear, unreadable, or not full sample. |
+| B.3-2 ECON278 option completed correctly (correlation + interpretation) (LO 4.2.2.6, 4.2.2.7) | Reports correlation coefficient on the full sample and provides a 2–4 sentence interpretation of what high vs low correlation means for comparing implied TFP across models. | Correlation missing/incorrect sample and/or interpretation is missing or generic. |
+| B.3-3 ECON388 option completed correctly (regression + interpretation) (LO 4.2.2.6, 4.2.2.7) | Runs a regression relating $A^{CD}$ and $A^{HJ}$, reports the relationship and $R^2$, interprets $\beta$, explains intercept choice, and correctly explains what $R^2$ measures in this context. | Regression outputs incomplete and/or interpretations are incorrect or missing required parts. |
+| C.1-1 Log error definition is applied consistently (LO 4.2.2.6) | Uses $e_i^{m}=\log(y_i)-\log(\hat{y}_i^{m})$ consistently for both models and uses the same country sample when comparing models. | Inconsistent definitions, inconsistent samples, or mixing logs/levels without explanation. |
+| C.1-2 RMSE in logs computed for both models (LO 4.2.2.6) | Reports $RMSE_{\log}^{CD}$ and $RMSE_{\log}^{HJ}$ on the entire sample with $N$ clearly identified. | One or both RMSE values missing, wrong formula, or unclear sample size. |
+| C.2-1 Explained share of variance computed for both models (LO 4.2.2.6, 4.2.2.7) | Computes $ExplainedShare^{m}=1-\frac{Var(e_i^{m})}{Var(\log(y_i))}$ for both models on the same sample and reports the results clearly. | Missing one model, wrong formula, or sample inconsistency/unclear reporting. |
+| C.3-1 Quartiles defined on observed $\log(y)$ and table reported (LO 4.2.2.6) | Defines Q1–Q4 using observed $\log(y)$, computes $RMSE_{\log,q}^{CD}$ and $RMSE_{\log,q}^{HJ}$, and provides a clear four-row table. | Quartiles defined incorrectly (e.g., on predicted values), missing quartiles, or table incomplete. |
+| C.4-1 Interpretation uses all three fit metrics with intuitive explanations (LO 4.2.2.6, 4.2.2.7) | Interprets RMSE using $\exp(RMSE_{\log})$ as a typical factor error; interprets explained share as dispersion accounted for; and interprets quartile RMSE patterns with explicit numeric references. | Missing one metric, lacks intuitive interpretation, insufficient numeric references, or word count outside range. |
+| C.4-2 Quartile pattern diagnosis is specific (LO 4.1.6.2, 4.2.2.5) | Identifies the quartile with the largest improvement and one quartile with small/negative improvement, citing RMSE values, and links the pattern to model ingredients (especially human capital) in a plausible way. | Quartile discussion is vague, not evidenced by numbers, or not connected to model mechanisms. |
+| C.4-3 Reconciling evidence + limitation is thoughtful and mechanically grounded (LO 4.2.2.7) | Explains whether metrics are consistent and, if not, gives a coherent reason; states one limitation about data/model structure (PPP, schooling quality, capital measurement, sample selection, residual TFP) and explains how it could mechanically affect at least one fit metric. | No reconciliation attempt and/or limitation is generic or not tied to how metrics are computed. |
+| X.1-1 Presentation and auditability (supports all outcomes) | Tables/figures are labeled and readable; variables and models are clearly identified; a grader can verify what was computed and which sample was used without guessing. | Outputs are unlabeled, unclear, or not auditable (unclear variables/sample). |
+

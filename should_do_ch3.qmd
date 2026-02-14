@@ -1,0 +1,860 @@
+---
+title: "Should Do Ch 3 — Growth rates, catch-up, and global income distributions"
+author: "Wyatt Whiting"
+date: January 24, 2026
+format: 
+  html:
+    embed-resources: true
+    toc: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+## Objective
+
+You will build a small cross-country dataset of real GDP per capita (PPP), use level and log/ratio-scale visualizations to interpret catch-up and divergence, and summarize growth performance with defensible statistics on average growth and volatility. You will then connect growth to the distribution of income by assembling inequality measures from major public data sources and using Gapminder visualizations to compare income distributions across countries and over time. The emphasis throughout is on economic judgment: making transparent choices about data, extracting clear stylized facts from evidence, and explaining what the evidence does and does not justify.
+
+## Learning Outcomes
+
+<details>
+
+<summary><strong>3.1 Understand the empirical phenomenon of economic growth</strong></summary>
+
+  <details style="margin-left: 20px;">
+    <summary>3.1.1 Explain the relationship between growth rates and income differences across time</summary>
+
+    - 3.1.1.1 Define the one-period growth rate  
+    - 3.1.1.4 Define the “log” or “ratio” scale  
+    - 3.1.1.5 Transform a variable to a log scale and vice-versa  
+    - 3.1.1.6 Define average yearly growth rates  
+    - 3.1.1.7 Calculate average yearly growth rates  
+    - 3.1.1.8 Define economic divergence  
+    - 3.1.1.9 Use ratio scale to compare income levels and growth rates across countries  
+    - 3.1.1.13 Interpret ratio-scale plots to distinguish constant growth from changing growth rates  
+
+  </details>
+
+  <details style="margin-left: 20px;">
+    <summary>3.1.2 Discuss the human consequences of economic growth</summary>
+
+    - 3.1.2.2 Contrast the costs and benefits of economic growth  
+    - 3.1.2.3 Discuss income inequality across and within nations  
+
+  </details>
+
+</details>
+
+
+## Sources (required)
+
+1. Penn World Tables 7.1 via FRED - [FRED](https://fred.stlouisfed.org/categories/33100)
+2. World Bank – World Development Indicators
+    a. Data portal [World Bank access](https://datacatalog.worldbank.org/search/dataset/0037712/world-development-indicators)
+    b. API Python package [WBGAPI](https://blogs.worldbank.org/en/opendata/introducing-wbgapi-new-python-package-accessing-world-bank-data)
+3. Our World In Data 
+    a. Data portal [OWID Data](https://ourworldindata.org/search)
+    b. API Python package [OWID Catalog](https://docs.owid.io/projects/etl/api/)
+4. Gapminder Income Mountains [Chart](https://www.gapminder.org/tools/#$model$markers$mountain$data$filter$dimensions$geo$/$or@$geo$/$in@=africa&=americas&=asia&=europe&=usa&=cod&=mex;;;;;;;;;&billy$encoding$selected$data$;;;;;;&chart-type=mountain&url=v2)
+
+Additional sources may be used for context, but they do not replace these required sources.
+
+
+
+## Part A — Stylized Facts on International Growth Rates
+
+Your goal is to produce a short set of stylized facts about growth around the world, supported by figures and simple summary statistics.
+
+1. Country set and series documentation: Find Real GDP per Capita PPP data using the Penn World Table 7.1 available in FRED. Choose 6 countries, United States plus five others at different income levels, at least one country from each level required (low, lower-middle, upper-middle, high). For an internationally recognized income level categorization, visit [World Bank](https://blogs.worldbank.org/en/opendata/world-bank-country-classifications-by-income-level-for-2024-2025). At least one non-U.S. country must connect to your personal context (family background, mission/service, travel, language study, research interest, or career interest). 
+
+::: {.callout-note title="Answer" icon="false"}
+
+
+Series documentation table (fill in all fields):
+
+| Country | FRED series ID | FRED series title | Units | Frequency |
+|---|---|---|---|---|
+| United States | RGDPCHUSA625NUPN | Purchasing Power Parity Converted GDP Per Capita (Chain Series) for United States | 2005 International Dollars per Person | Annual |
+| China | RGDPC2CNA625NUPN | Purchasing Power Parity Converted GDP Per Capita (Chain Series) for China | 2005 International Dollars per Person, Not Seasonally Adjusted | Annual |
+| South Africa | RGDPCHZAA625NUPN | Purchasing Power Parity Converted GDP Per Capita (Chain Series) for South Africa | 2005 International Dollars per Person, Not Seasonally Adjusted | Annual |
+| Bangladesh | RGDPCHBDA625NUPN | Purchasing Power Parity Converted GDP Per Capita (Chain Series) for Bangladesh | 2005 International Dollars per Person, Not Seasonally Adjusted | Annual |
+| Democratic Republic of Congo | RGDPCHCDA625NUPN | Purchasing Power Parity Converted GDP Per Capita (Chain Series) for Democratic Republic of the Congo | 2005 International Dollars per Person | Annual |
+| Ghana | RGDPCHGHA625NUPN | Purchasing Power Parity Converted GDP Per Capita (Chain Series) for Ghana | 2005 International Dollars per Person | Annual |
+
+Local-context connection description: I am actively studying Mandarin Chinese and am deeply interested in doing Chinese policy research professionally.
+
+:::
+
+2. Data assembly and sample window: Obtain the six series using the FRED API, align them on a common year index, choose a single sample window you will use throughout Part A. State one rule you used to handle missing values, e.g., drop years with any missing values; or allow gaps and compute growth only where consecutive years exist; interpolation is not allowed. Use annual frequency.
+
+::: {.callout-note title="Answer" icon="false"}
+Sample window (start year, end year) and why you chose it: 
+
+1990–2010. This window was chosen because (1) Penn World Table data ends around 2010. Also 1990 marks the post-Cold War era, providing a coherent economic period for comparison. Finally, the 21-year span includes both growth periods and the 2008–2009 global financial crisis, allowing comparison of both normal conditions and downturn co-movement.
+
+Missing-data handling (what you did and why):
+
+When calculating summary statistics , I dropped any NaN values from the growth series using .dropna(). This approach keeps relevant information without artificial tampering and ensures summary statistics are computed only on valid observations.
+
+Display the first 5 rows of your final tidy dataset (including column titles):
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+import pandas as pd
+import matplotlib.pyplot as plt
+from fredapi import Fred
+
+fred_api = "c2c1f3c5f26653c010743b2fa6813a2f"
+fred = Fred(api_key=fred_api)
+
+series_ids = {
+    "USA": "RGDPCHUSA625NUPN",
+    "DRC": "RGDPCHCDA625NUPN",
+    "Ghana": "RGDPCHGHA625NUPN",
+    "China": "RGDPC2CNA625NUPN",
+    "South Africa": "RGDPCHZAA625NUPN",
+    "Bangladesh": "RGDPCHBDA625NUPN"
+}
+
+data = {}
+for country, series_id in series_ids.items():
+    s = fred.get_series(series_id)
+    s.index = pd.to_datetime(s.index)
+    s = s.resample("YE").mean()   # ensure annual frequency
+    s.index = s.index.year        # convert to year index
+    data[country] = s
+
+df = pd.DataFrame(data)
+df = df.sort_index()
+
+df = df.loc[1990:2010]
+df_window = df  # alias used in later chunks
+
+print(df.head())
+
+```
+:::
+
+3. Create two multi-country time series figures using the same sample window. Put the year in the x axis and GDP per Capita PPP in the y axis. 
+    - GDP per capita in levels
+    - GDP per capita on a log scale
+
+  Include a short note explaining one thing the log scale reveals that the level plot does not.
+
+::: {.callout-note title="Answer" icon="false"}
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+plt.figure(figsize=(12, 7))
+ 
+plt.plot(df.index, df["USA"], label="USA", linewidth=2)
+plt.plot(df.index, df["DRC"], label="DRC", linewidth=2)
+plt.plot(df.index, df["China"], label="China")
+plt.plot(df.index, df["South Africa"], label="South Africa")
+plt.plot(df.index, df["Ghana"], label="Ghana")
+plt.plot(df.index, df["Bangladesh"], label="Bangladesh")
+ 
+plt.xlabel("Year")
+plt.ylabel("GDP per Capita (PPP)")
+plt.title("GDP per Capita (PPP), 1990–2010 (Log Scale)")
+plt.yscale("log")
+plt.legend()
+plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+ 
+plt.show()
+
+
+plt.figure(figsize=(12, 7))
+ 
+plt.plot(df.index, df["USA"], label="USA", linewidth=2)
+plt.plot(df.index, df["DRC"], label="DRC", linewidth=2)
+plt.plot(df.index, df["China"], label="China")
+plt.plot(df.index, df["South Africa"], label="South Africa")
+plt.plot(df.index, df["Ghana"], label="Ghana")
+plt.plot(df.index, df["Bangladesh"], label="Bangladesh")
+ 
+plt.xlabel("Year")
+plt.ylabel("GDP per Capita (PPP)")
+plt.title("GDP per Capita (PPP), 1990–2010")
+plt.legend()
+plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+ 
+plt.show()
+```
+
+
+
+Log-scale note: From a magnitude scale, no country remotely touches the US in raw economic power. However, within the log scale it is much easier to identify how the growth is surprisingly stable and how China's superior growth rate, although producing negligible returns of magnitude in comparison, is quickly approaching the US.
+:::
+
+4. Compute year-over-year growth rates (percent) for each country and present them as one country per panel using Quarto tabsets. Each country panel must include:
+    a. a growth-rate chart, and
+    b. a growth summary table with at least:
+       - average yearly growth over the sample window,
+       - standard deviation of growth,
+       - share of years with negative growth,
+       - worst growth year (minimum growth rate) with the year listed.
+
+The callout below contains the structure for tabsets. If you need information on Quarto layouts and tabsets see [HERE](https://quarto.org/docs/interactive/layout.html)
+
+::: {.callout-note title="Answer" icon="false"}
+
+::: {.panel-tabset}
+
+## United States
+
+Growth-rate chart:
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+import numpy as np
+us_growth = 100 * (np.log(df["USA"]) - np.log(df["USA"].shift(1)))
+
+plt.figure(figsize=(10, 6))
+plt.plot(df.index, us_growth, label="US GDP per Capita Growth")
+
+plt.xlabel("Year")
+plt.ylabel("Growth Rate (%)")
+plt.title("U.S. GDP per Capita Growth Rate (PPP), 1985–2010")
+plt.axhline(0, color="black", linewidth=1)
+plt.grid(True)
+plt.legend()
+
+plt.show()
+```
+
+Compact summary (table):
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+import numpy as np
+import pandas as pd
+
+us_growth = 100 * (np.log(df_window["USA"]) - np.log(df_window["USA"].shift(1)))
+
+g = us_growth.dropna()
+
+avg_growth = float(g.mean())
+sd_growth = float(g.std(ddof=1))
+share_negative = float((g < 0).mean())
+worst_year = int(g.idxmin())
+worst_growth = float(g.loc[worst_year])
+
+us_summary = pd.DataFrame(
+    {
+        "avg_growth_pct": [avg_growth],
+        "sd_growth_pct": [sd_growth],
+        "share_negative": [share_negative],
+        "worst_year": [worst_year],
+        "worst_growth_pct": [worst_growth],
+    },
+    index=["USA"],
+)
+
+us_summary
+```
+
+## China
+
+Growth-rate chart:
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+china_growth = 100 * (np.log(df["China"]) - np.log(df["China"].shift(1)))
+
+plt.figure(figsize=(10, 6))
+plt.plot(df.index, china_growth, label="China GDP per Capita Growth")
+
+plt.xlabel("Year")
+plt.ylabel("Growth Rate (%)")
+plt.title("China GDP per Capita Growth Rate (PPP)")
+plt.axhline(0, color="black", linewidth=1)
+plt.grid(True)
+plt.legend()
+
+plt.show()
+```
+
+Compact summary (table):
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+china_growth = 100 * (np.log(df_window["China"]) - np.log(df_window["China"].shift(1)))
+
+g = china_growth.dropna()
+
+avg_growth = float(g.mean())
+sd_growth = float(g.std(ddof=1))
+share_negative = float((g < 0).mean())
+worst_year = int(g.idxmin())
+worst_growth = float(g.loc[worst_year])
+
+china_summary = pd.DataFrame(
+    {
+        "avg_growth_pct": [avg_growth],
+        "sd_growth_pct": [sd_growth],
+        "share_negative": [share_negative],
+        "worst_year": [worst_year],
+        "worst_growth_pct": [worst_growth],
+    },
+    index=["China"],
+)
+
+china_summary
+```
+
+## South Africa
+
+Growth-rate chart:
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+sa_growth = 100 * (np.log(df["South Africa"]) - np.log(df["South Africa"].shift(1)))
+
+plt.figure(figsize=(10, 6))
+plt.plot(df.index, sa_growth, label="South Africa GDP per Capita Growth")
+
+plt.xlabel("Year")
+plt.ylabel("Growth Rate (%)")
+plt.title("South Africa GDP per Capita Growth Rate (PPP)")
+plt.axhline(0, color="black", linewidth=1)
+plt.grid(True)
+plt.legend()
+
+plt.show()
+```
+
+Compact summary (table):
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+sa_growth = 100 * (np.log(df_window["South Africa"]) - np.log(df_window["South Africa"].shift(1)))
+
+g = sa_growth.dropna()
+
+avg_growth = float(g.mean())
+sd_growth = float(g.std(ddof=1))
+share_negative = float((g < 0).mean())
+worst_year = int(g.idxmin())
+worst_growth = float(g.loc[worst_year])
+
+sa_summary = pd.DataFrame(
+    {
+        "avg_growth_pct": [avg_growth],
+        "sd_growth_pct": [sd_growth],
+        "share_negative": [share_negative],
+        "worst_year": [worst_year],
+        "worst_growth_pct": [worst_growth],
+    },
+    index=["South Africa"],
+)
+
+sa_summary
+```
+
+## Bangladesh
+
+Growth-rate chart:
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+bd_growth = 100 * (np.log(df["Bangladesh"]) - np.log(df["Bangladesh"].shift(1)))
+
+plt.figure(figsize=(10, 6))
+plt.plot(df.index, bd_growth, label="Bangladesh GDP per Capita Growth")
+
+plt.xlabel("Year")
+plt.ylabel("Growth Rate (%)")
+plt.title("Bangladesh GDP per Capita Growth Rate (PPP)")
+plt.axhline(0, color="black", linewidth=1)
+plt.grid(True)
+plt.legend()
+
+plt.show()
+```
+Compact summary (table):
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+bd_growth = 100 * (np.log(df_window["Bangladesh"]) - np.log(df_window["Bangladesh"].shift(1)))
+
+g = bd_growth.dropna()
+
+avg_growth = float(g.mean())
+sd_growth = float(g.std(ddof=1))
+share_negative = float((g < 0).mean())
+worst_year = int(g.idxmin())
+worst_growth = float(g.loc[worst_year])
+
+bd_summary = pd.DataFrame(
+    {
+        "avg_growth_pct": [avg_growth],
+        "sd_growth_pct": [sd_growth],
+        "share_negative": [share_negative],
+        "worst_year": [worst_year],
+        "worst_growth_pct": [worst_growth],
+    },
+    index=["Bangladesh"],
+)
+
+bd_summary
+```
+
+## Democratic Republic of Congo
+
+Growth-rate chart:
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+drc_growth = 100 * (np.log(df["DRC"]) - np.log(df["DRC"].shift(1)))
+
+plt.figure(figsize=(10, 6))
+plt.plot(df.index, drc_growth, label="DR Congo GDP per Capita Growth")
+
+plt.xlabel("Year")
+plt.ylabel("Growth Rate (%)")
+plt.title("Democratic Republic of Congo GDP per Capita Growth Rate (PPP)")
+plt.axhline(0, color="black", linewidth=1)
+plt.grid(True)
+plt.legend()
+
+plt.show()
+```
+Compact summary (table):
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+drc_growth = 100 * (np.log(df_window["DRC"]) - np.log(df_window["DRC"].shift(1)))
+
+g = drc_growth.dropna()
+
+avg_growth = float(g.mean())
+sd_growth = float(g.std(ddof=1))
+share_negative = float((g < 0).mean())
+worst_year = int(g.idxmin())
+worst_growth = float(g.loc[worst_year])
+
+drc_summary = pd.DataFrame(
+    {
+        "avg_growth_pct": [avg_growth],
+        "sd_growth_pct": [sd_growth],
+        "share_negative": [share_negative],
+        "worst_year": [worst_year],
+        "worst_growth_pct": [worst_growth],
+    },
+    index=["DRC"],
+)
+
+drc_summary
+```
+
+## Ghana
+
+Growth-rate chart:
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+ghana_growth = 100 * (np.log(df["Ghana"]) - np.log(df["Ghana"].shift(1)))
+
+plt.figure(figsize=(10, 6))
+plt.plot(df.index, ghana_growth, label="Ghana GDP per Capita Growth")
+
+plt.xlabel("Year")
+plt.ylabel("Growth Rate (%)")
+plt.title("Ghana GDP per Capita Growth Rate (PPP)")
+plt.axhline(0, color="black", linewidth=1)
+plt.grid(True)
+plt.legend()
+
+plt.show()
+```
+Compact summary (table):
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+ghana_growth = 100 * (np.log(df_window["Ghana"]) - np.log(df_window["Ghana"].shift(1)))
+
+g = ghana_growth.dropna()
+
+avg_growth = float(g.mean())
+sd_growth = float(g.std(ddof=1))
+share_negative = float((g < 0).mean())
+worst_year = int(g.idxmin())
+worst_growth = float(g.loc[worst_year])
+
+ghana_summary = pd.DataFrame(
+    {
+        "avg_growth_pct": [avg_growth],
+        "sd_growth_pct": [sd_growth],
+        "share_negative": [share_negative],
+        "worst_year": [worst_year],
+        "worst_growth_pct": [worst_growth],
+    },
+    index=["Ghana"],
+)
+
+ghana_summary
+```
+
+:::
+:::
+
+5. Write a concise comparative discussion grounded in your Part 4 figures. Focus on volatility, co-movement in global downturns, and differences in average growth.
+
+::: {.callout-note title="Answer" icon="false"}
+
+Volatility ranking: The most volatile country in our 6-country dataset was the DRC with the least being the USA. They have standard deviations of growth of 8.074986 and 2.315082. This measures how spread out the growth rates are, with DRC having a wide spread as it jumps back and forth between years and the US with a smaller spread due to its relatively constant growth.
+
+Average growth differences: China exhibited the highest average yearly growth at 7.529941% compared to DRC's average of -3.334527%. The difference of approximately 10 percentage points may seem modest, but relative to the stable USA's standard deviation of 2.31%, this gap represents about 4-5 standard deviations—indicating an economically significant difference rather than random noise. Bangladesh and Ghana showed intermediate average growth rates of 2.955173% and 2.487519% respectively, suggesting that developing nations are growing faster than the US (1.379921%) in terms of percentage if not in terms of magnitude. Should these rates continue over many years, we can expect these countries to outpace the US eventually.
+
+Negative growth frequency and severity: DRC experienced the highest share of negative growth years at 55%, with its worst year being 1993 at -18.299069%. In contrast, the USA had only 20% of years with negative growth, and its worst contraction of -5.615614% in 2009 was considerably milder (despite the severity of the recession of '08). South Africa fell between these extremes with 15% negative years and a minimum growth rate of -3.97368% in 2009. This pattern suggests a) that developed nations are more stable and b) particularly important nation's growth rates (such as the US) have the ability to affect other nations, which can be seen from the fact that the American-born recession had impact in other nations in the years following 2008.
+
+Shared downturn (co-movement): The 2008-2009 global financial crisis is visible across multiple panels. During this window, the USA, South Africa, Ghana, and the Congo recorded negative growth. Even China's growth decelerated to 8.5% from around 10% (though remaining positive). Ghana showed a dip of about 6%. This synchronized downturn demonstrates how financial shocks in developed economies transmit globally, affecting countries at all income levels despite differences in their financial market integration.
+:::
+
+6. Stylized facts about growth around the world: Produce three stylized facts about growth around the world based on your work in Part A. Each stylized fact must cite at least one numeric value from your summaries (e.g., mean growth, volatility, worst year) and reference the relevant figure/panel. 
+
+::: {.callout-note title="Answer" icon="false"}
+Stylized facts (exactly 3). Use this format:
+
+1. Claim: Sustained Growth Drives Divergence
+
+   Evidence: US growth has remained somewhat constant, while Chinese growth is increasing (see log scale graph). This accounts for how China's magnitude of GDP/capita is ticking upward more quickly than the US. The 7.529941% growth has caused it to grow to more than double in the same period that the US has only grown by a bit more than 25% in raw magnitude
+
+2. Claim: Negative Growth is Common in Poor Countries
+
+   Evidence: The DRC, arguably the poorest country, has a much higher percentage share of negative years (55%) as opposed to the other 5 who had between (5-20%).
+
+3. Claim: Growth Volatility Varies Inversely with Income Level
+
+   Evidence: Poor countries, even when standardizing for share of negative growth years, have larger standard deviation of growth. The US has more negative share of years (20%) than either South Africa, Bangladesh, or Ghana (all 15%), yet it had the lowest standard deviation of 2.315082 as compared to the others' 2.458886, 2.368653, 2.701198. The DRC had the highest percentage of negative growth years by far and also subsequently had the highest volatility by far.
+:::
+
+
+## Part B — Growth and Inequality
+
+The phenomenon of economic growth creates great prosperity. In overall terms it has helped most of humanity get out of the constant drudgery of absolute poverty. However, growth across the world is variable, so there are pockets of great material and social wealth compared to pockets of poverty and misery. So you don't ignore this important reality, the objective of this part is to help you explore the distribution of income and wealth across the world.
+
+::: {.callout-tip collapse="true"}
+## Obtaining World Bank Income Shares via API Wrapper
+
+For analysis and plotting, using a direct API wrapper is more efficient than manual downloads. WBGAPI libraries return data directly as a **Pandas Series** (Python) or a **Tibble** (R), which are essentially labeled arrays. To get you started, here are some naming patterns for the data series you could use.
+
+### World Bank WDI indicator codes for income shares
+
+| Indicator (WDI name) | WDI indicator code | Unit | Notes |
+|:---|:---|:---|:---|
+| Income share held by lowest 20% | SI.DST.FRST.20 | Percent | Quintile share (bottom 20%). |
+| Income share held by second 20% | SI.DST.02ND.20 | Percent | Quintile share. |
+| Income share held by third 20% | SI.DST.03RD.20 | Percent | Quintile share. |
+| Income share held by fourth 20% | SI.DST.04TH.20 | Percent | Quintile share. |
+| Income share held by highest 20% | SI.DST.05TH.20 | Percent | Quintile share (top 20%). |
+| Income share held by highest 10% | SI.DST.10TH.10 | Percent | Top decile share. |
+| Income share held by lowest 10% | SI.DST.01ST.10 | Percent | Bottom decile share. Availability varies by country/year. |
+:::
+
+
+
+::: {.callout-tip collapse="true"}
+## Obtaining OWID Top Income Shares via Python
+
+The owid-catalog library allows you to access granular inequality data. Unlike FRED's code-based system, OWID uses descriptive variable names within specific "namespaces." [HERE](https://docs.owid.io/projects/etl/getting-started/) is a link to their documentation. You are not expected to master the docs; use them to support your search terms and to validate variables. Use it as context for AI to help you with accessing the information and queries. The table below has some of their naming conventions.
+
+### Common Variable Names (WID Dataset)
+
+|Indicator	|OWID Variable Name	|
+|:---|:---|
+|Income Share: Top 1%	|share_top1_pretax	|
+|Income Share: Top 10%	|share_top10_pretax	|
+|Income Share: Top 0.1%	|share_top01_pretax	|
+|Gini Coefficient	|gini_pretax|
+|Average Income	|avg_income_pretax|
+|Palma Ratio	|palma_ratio|
+|Wealth Share: Richest 10% |wealth-share-richest-10-percent|
+:::
+
+
+1. Income Inequality Table: Create a table that contains the following statistical information about the income distribution of each country from Part A. Please use the most recent year available for all the series. In case there is no information on one or more of your countries, replace it with another of the same World Bank income level.
+
+    a. Income Share of the top 1% of earners
+    b. Income Share of the top 10%
+    c. Income Share of the top 20%
+    d. Income Share of the second 20%
+    e. Income Share of the third 20%
+    f. Income Share of the fourth 20%
+    g. Income Share of the lowest 10%
+
+
+::: {.callout-note title="Answer" icon="false"}
+
+Switching Countries Note: DRC replaced with Malawi due to low availability of inequilty data to compare across years with the other countries
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the code"
+import pandas as pd
+import numpy as np
+import wbgapi as wb
+from owid.catalog import find
+
+# -------------------------
+# Configuration
+# -------------------------
+countries = {
+    "United States": "USA",
+    "China": "CHN",
+    "South Africa": "ZAF",
+    "Bangladesh": "BGD",
+    "Malawi": "MWI",
+    "Ghana": "GHA"
+}
+
+# WDI indicator codes for income shares
+# Note: WDI names quintiles from bottom up; assignment names from top down
+wdi_indicators = {
+    "SI.DST.10TH.10": "Top 10%",
+    "SI.DST.05TH.20": "Top 20%",
+    "SI.DST.04TH.20": "Second 20%",   # 60-80th percentile
+    "SI.DST.03RD.20": "Third 20%",    # 40-60th percentile
+    "SI.DST.02ND.20": "Fourth 20%",   # 20-40th percentile
+    "SI.DST.01ST.10": "Lowest 10%",   # Bottom 10%
+}
+
+iso_codes = list(countries.values())
+
+# -------------------------
+# 1) Pull all WDI indicators in one call
+# -------------------------
+wb_raw = wb.data.DataFrame(
+    series=list(wdi_indicators.keys()),
+    economy=iso_codes,
+    time=range(1960, 2025),
+    labels=False
+)
+
+# wbgapi returns: rows = (economy, series), columns = YR1960, YR1961, ...
+# Reset index to get economy and series as columns
+wb_df = wb_raw.reset_index()
+
+# Melt year columns into rows
+year_cols = [c for c in wb_df.columns if c.startswith("YR")]
+wb_df = wb_df.melt(id_vars=["economy", "series"], value_vars=year_cols, var_name="year", value_name="value")
+
+# Clean up year column
+wb_df["year"] = wb_df["year"].str.replace("YR", "").astype(int)
+
+# Rename series codes to friendly names
+wb_df["indicator"] = wb_df["series"].map(wdi_indicators)
+wb_df = wb_df.drop(columns=["series"])
+
+# -------------------------
+# 2) Pull OWID Top 1% income share in one call
+# -------------------------
+results = find("share_pretax_p99p100")
+
+if len(results) == 0:
+    # Fallback: create empty dataframe if OWID search fails
+    owid_df = pd.DataFrame(columns=["economy", "year", "Top 1%"])
+else:
+    owid_tb = results.iloc[0].load().reset_index()
+
+    # Map country names to ISO codes
+    name_to_iso = {name: iso for name, iso in countries.items()}
+    owid_tb["economy"] = owid_tb["country"].map(name_to_iso)
+    owid_tb = owid_tb.dropna(subset=["economy"])
+    owid_tb = owid_tb.rename(columns={"share_pretax_p99p100": "Top 1%"})
+    owid_df = owid_tb[["economy", "year", "Top 1%"]].copy()
+
+# -------------------------
+# 3) Process WDI data and merge with OWID
+# -------------------------
+# Pivot WDI to have one column per indicator (already using friendly names)
+wb_pivot = wb_df.pivot_table(
+    index=["economy", "year"],
+    columns="indicator",
+    values="value"
+).reset_index()
+
+# Flatten column index if needed
+wb_pivot.columns.name = None
+
+# Merge WDI and OWID data
+combined = wb_pivot.merge(owid_df, on=["economy", "year"], how="outer")
+
+# -------------------------
+# 4) Find most recent year with complete data for each country
+# -------------------------
+desired_cols = ["Top 1%", "Top 10%", "Top 20%", "Second 20%", "Third 20%", "Fourth 20%", "Lowest 10%"]
+
+# Only require columns that actually exist in the data
+available_cols = [col for col in desired_cols if col in combined.columns]
+print(f"Available columns: {available_cols}")
+
+rows = []
+for country_name, iso in countries.items():
+    sub = combined[combined["economy"] == iso].copy()
+
+    # Find rows where at least some key columns have data
+    key_cols = [c for c in ["Top 1%", "Top 10%", "Top 20%"] if c in sub.columns]
+    if key_cols:
+        sub = sub.dropna(subset=key_cols, how="all")
+
+    if sub.empty:
+        row = {"Country": country_name, "Year": np.nan}
+        row.update({col: np.nan for col in desired_cols})
+    else:
+        # Get most recent year with most complete data
+        latest_year = sub["year"].max()
+        latest = sub[sub["year"] == latest_year].iloc[0]
+        row = {"Country": country_name, "Year": int(latest_year)}
+        for col in desired_cols:
+            row[col] = latest[col] if col in latest.index else np.nan
+
+    rows.append(row)
+
+income_table = pd.DataFrame(rows)
+
+# -------------------------
+# 5) Display final table
+# -------------------------
+display_order = ["Country", "Year", "Top 1%", "Top 10%", "Top 20%",
+                 "Second 20%", "Third 20%", "Fourth 20%", "Lowest 10%"]
+income_table = income_table[display_order].set_index("Country").round(2)
+
+print("Income Share Distribution by Country (Most Recent Year with Complete Data)")
+print()
+print(income_table)
+```
+:::
+
+2. Income Mountains Visualization: A table can be a useful tool, but a visualization makes it salient. Gapminder has a visualization they call Income Mountains. You can visualize the distribution of income for the world, a country, or a group of countries. The chart also has the option of showing the evolution of the income distribution of each country over time. I want you to add a visualization created in GapMinder of three of your chosen countries, the US, and the world income distribution chart. Follow the example below, note that the little houses in each chart are a link to their Dollar Street project. We will use it next.
+
+### Income Mountains for US, China, Bangladesh, and South Africa
+
+::: {.callout-note title="Visualization" icon="false"}
+
+![Worldwide Comparisons](C:\Users\major\OneDrive\Desktop\Macro Economics\Visual Data\SD_3 ALL.png)
+
+:::
+
+3. Historical Income Distribution: Use Gapminder’s Income Mountains to find a past year for the United States where the income distribution looks similar to the current-day distribution of other countries in your list. Similar means the mountain’s center (typical/median income) and spread (width/dispersion) look alike; do not try to match height because height reflects population. Choose three non-U.S. countries from Part B as comparison targets (use 2020, or the closest year shown in Gapminder), then use the Gapminder time slider to select one U.S. year for each target where the U.S. mountain’s center and spread look similar; for each match, document what visually matches and one limitation, and include one screenshot/image showing the comparison.
+
+
+
+::: {.callout-note title="Answer" icon="false"}
+
+| Comparison country (current day) | Comparison year | U.S. year selected |
+|---|---|---|
+| China | 2024 | 1902 |
+| South Africa | 2024 | 1838 |
+| Bangladesh | 2024 | 1866 |  
+
+Screen Shots Below 
+
+
+![China VS US](C:\Users\major\OneDrive\Desktop\Macro Economics\Visual Data\China(2024)+US(1902).png)
+
+![South Africa VS US](C:\Users\major\OneDrive\Desktop\Macro Economics\Visual Data\SouthAfrica(2024)+US(1838).png)
+
+![Bangladesh VS US](C:\Users\major\OneDrive\Desktop\Macro Economics\Visual Data\Bang(2024)+US(1866).png)
+
+:::
+
+4. Dollar Street: Life is about context and perspective. Gapminder's [Dollar Street](https://www.gapminder.org/dollar-street) is a great way to turn statistics to reality. They took pictures of different households across the world to illustrate income distribution disparities. Explore two households in each of the countries you selected. You can do it directly via the link, or you can click the "Show homes from..." option on the mountains chart to help you find them quickly. 
+
+::: {.callout-note title="Answer" icon="false"}
+
+China:
+
+Spartian Homes,Few Decorations Beyond Photos, Grime Apparent
+
+
+Malawi:
+
+Lack of Furniture, Earth Floors, Buildings of Clay/Earth
+
+South Africa:
+
+Windows, Furniture,Running Water, Plumbing
+
+
+Bangladesh:
+
+Hand Water Pump, Makeshift Walls/Roof,Tin As Building Material
+
+
+United States:
+
+Colorful House (by design),Running Water,Cars, Common to have Furniture
+
+:::
+
+> "Wo unto you rich men, that will not give your substance to the poor, for your riches will canker your souls; and this shall be your lamentation in the day of visitation, and of judgment, and of indignation: The harvest is past, the summer is ended, and my soul is not saved!" D&C 56:16
+
+We have a moral obligation because of our covenants to make a difference in the world. As economists in training, you have the tools to make a difference! Please reflect on the facts we have uncovered this week and the implications for you as a disciple of Jesus. 
+
+   a. What is the main cause of concern you identified in your homework this week.
+
+   b. What is the scope of your responsibility. Be reasonable, one person is unlikely to fix the problem. Think long term, think strategically.
+
+   c. Set a 20-30 year goal that can help you meet your responsibility.
+
+
+::: {.callout-note title="Answer" icon="false"}
+The main cause of concern for me this week was two observations.
+
+    1. How coupled the developing world's growth is with the US's
+
+    2. How much income is captured by the higher percentiles of wealth.
+
+I believe that these both represent an overreliance on people/institutions that will focus on using assets to produce more assets rather than intentionally raise all boats, although that does often occur as a side effect.
+
+I think that the scope of my responsibility is in acknowledging my blessings and seeking to use my privileged position to be more intentional about effecting change. Seeking opportunities to create value for others as well as myself is better than just one or the other. If I am privledged to be in a position do work on policy or do reserach, I think that allowing my understanding of growth and inequlaity can inform noramtive policy towards increasing standards of living everywhere. Working on policies that stabalize growth rates, as volitility creates the whiplash that causes issues.
+
+I think that in 20-30 years, if I am blessed enough to be in a financially stable position, I would find great satisfaction in donating generously (10%+, not including tithing) to well-selected causes that truly allow the means to touch the lives of individuals and also being active in individual-facing community service (women's shelters, food banks, etc.)
+:::
+
+
+## Rubric
+
+| Specification (with learning outcomes) | Meets Expectations | Not Yet |
+|---|---|---|
+| A.1-1 Country set meets constraints (LO 3.1.1, 3.1.2.3) | Six countries total: U.S. + five others spanning all four World Bank income levels (low, lower-middle, upper-middle, high), with at least one non-U.S. tied to local context as required. | Missing a required income level, wrong number of countries, or local-context requirement not satisfied. |
+| A.1-2 Series documentation is complete and correct (LO 3.1.1) | Series table fully filled for all six countries (ID, title, units, frequency) and series correspond to Real GDP per Capita PPP from PWT 7.1 via FRED. | Table incomplete, series not identifiable, or series do not match the intended concept/source. |
+| A.2-1 Sample window is stated and consistently used (LO 3.1.1) | Start/end years clearly stated with a brief justification, and the same window is used throughout Part A (figures, growth, summaries). | Window missing, unclear, or inconsistent across Part A outputs. |
+| A.2-2 Missing-data rule is explicit and compliant (LO 3.1.1) | One clear missing-data rule is stated and followed (e.g., drop-years rule or “compute growth where consecutive years exist”), and interpolation is not used. | Missing-data handling is not stated, not followed, or uses interpolation. |
+| A.2-3 Tidy dataset preview provided (LO 3.1.1) | First 5 rows shown with readable column titles; structure clearly supports multi-country plotting and growth calculations. | Preview missing, unreadable, or dataset structure does not match the described workflow. |
+| A.3-1 Levels figure requirement met (LO 3.1.1.9) | Multi-country time series in levels is present, readable, and uses the Part A sample window with labeled axes/legend. | Figure missing, wrong time span, or unclear what is plotted. |
+| A.3-2 Log/ratio figure requirement met (LO 3.1.1.4, 3.1.1.9) | Multi-country time series on a log/ratio scale is present, readable, and uses the same sample window with labeled axes/legend. | Figure missing, wrong scale, wrong time span, or unclear what is plotted. |
+| A.3-3 Log-scale note demonstrates the correct insight (LO 3.1.1.4, 3.1.1.13) | Note correctly explains at least one nontrivial thing the log/ratio scale reveals (e.g., constant growth as straight lines; relative gaps; growth rate comparisons) that is not obvious in levels. | Note is missing, definition-only, or incorrectly interprets what log/ratio scaling shows. |
+| A.4-1 Growth rates computed and displayed for each country (LO 3.1.1.1, 3.1.1.6–3.1.1.7) | Year-over-year growth rates (percent) are computed for each country and shown as one country per panel using Quarto tabsets. | Growth rates missing/incorrect, not percent, not shown by country panels, or tabsets not used as required. |
+| A.4-2 Growth summary tables include all required statistics (LO 3.1.1.6–3.1.1.7) | Each country panel includes a compact summary table with: mean growth, standard deviation, share of negative years, and worst year with the year labeled. | One or more required statistics are missing, mislabeled, or not tied to the sample window. |
+| A.5-1 Discussion meets minimum format requirements (LO 3.1.1, 3.1.2.3) | 200–350 words; references at least three countries; includes at least three numeric comparisons; identifies one shared downturn window with approximate years and affected countries listed. | Word count out of range and/or required numeric comparisons/country coverage/downturn window missing. |
+| A.5-2 Discussion is evidence-based and comparative (LO 3.1.1) | Claims are grounded in the Part A panels/tables (means, volatility, negative years, downturn window) rather than generic narrative; compares volatility, average growth, and downturn co-movement using numbers. | Discussion is mostly generic, not evidence-based, or not connected to the produced figures/summaries. |
+| A.6-1 Stylized facts count and structure correct (LO 3.1.1) | Exactly three stylized facts; each has a clear claim and an evidence line. | Not exactly three and/or missing claim/evidence structure. |
+| A.6-2 Stylized facts are numerically evidenced and referenced (LO 3.1.1) | Each stylized fact cites at least one numeric value from the student’s summaries and references the relevant figure/panel. | Facts lack numeric evidence and/or do not reference the student’s outputs. |
+| B.1-1 Country set matches Part A (with documented replacements if needed) (LO 3.1.2.3) | Inequality table uses the same six countries as Part A unless data are unavailable; any replacement is documented and preserves the same World Bank income level. | Uses a different country set without justification, or replacements do not follow the “same income level” rule. |
+| B.1-2 Most recent year rule is applied and documented (LO 3.1.2.3) | For each statistic, the most recent available year is used and the chosen year is discoverable from the output (table notes, column labels, or footnotes). | “Most recent year” is not applied, not documented, or cannot be verified from the submission. |
+| B.1-3 Required inequality measures included (LO 3.1.2.3) | Table includes all required statistics: top 1%, top 10%, top 20%, second 20%, third 20%, fourth 20%, lowest 10% (as defined in the assignment). | One or more required measures missing or substituted without explanation. |
+| B.1-4 Source logic is correct and auditable (OWID vs WDI) (LO 3.1.2.3) | Measures are sourced appropriately (OWID/WID for top shares; WDI for quintile/decile shares), and the output makes the source/indicator codes or variable names identifiable. | Measures are pulled from unclear/incorrect sources or the origin of metrics is not identifiable. |
+| B.2-1 Required Income Mountains coverage met (LO 3.1.2.3) | Visualization includes three chosen countries, the U.S., and the world distribution, and is presented clearly (embedded screenshot/image or equivalent). | Missing one or more required distributions or visualization is not provided/readable. |
+| B.3-1 Comparison table completed (three targets) (LO 3.1.1.9, 3.1.2.3) | Three non-U.S. comparison targets are selected; for each, a comparison year and a U.S. historical year are recorded in the table. | Fewer than three comparisons, table incomplete, or years missing/unclear. |
+| B.3-2 Evidence included (screenshots/images) (LO 3.1.1.9) | Includes one screenshot/image per row showing the comparison (U.S. historical year vs comparison country current day). | Screenshots/images missing or do not show the required comparison. |
+| B.4-1 Dollar Street exploration completed (LO 3.1.2.2–3.1.2.3) | Two households explored for each selected country; evidence is auditable (brief identifiers/notes or screenshots/links described). | Exploration is missing, incomplete, or not auditable. |
+| B.4-2 Reflection addresses prompts a–c with specificity (LO 3.1.2.2, 3.1.2.5) | Reflection answers (a) concern, (b) scope of responsibility, and (c) a 20–30 year goal with specific, realistic commitments tied to Parts A–B. | Reflection is missing one of a–c, is generic, or does not connect to the assignment evidence. |
+| X.1-1 Presentation and auditability (supports all outcomes) | Outputs are labeled and readable; country names and years are clear; figures/tables are interpretable; a grader can verify data choices without guessing. | Outputs are hard to interpret, missing labels/years, or data choices are not identifiable. |
