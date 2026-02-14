@@ -12,7 +12,7 @@ This repository contains quantitative economics projects demonstrating skills in
 
 ## Projects
 
-### 1. [Cross-National Inequality & Development Analysis](./inequality-development-analysis/)
+### 1. [Cross-National Inequality & Development Analysis](Correct_Term-Project-Cleaned.Rmd)
 **File:** `Correct_Term-Project-Cleaned.Rmd`
 
 Regression analysis examining how economic inequality affects development outcomes (life expectancy, GNI per capita, education) across 60+ countries using panel data from 2000-2020.
